@@ -53,7 +53,7 @@ cmake --workflow --preset generators --fresh
 mkdir generators
 cmake --install build --prefix generators --component generators
 
-emcmake cmake -DSLANG_GENERATORS_PATH=generators/bin --preset emscripten -DSLANG_SLANG_LLVM_FLAVOR=DISABLE -DSLANG_ENABLE_SPLIT_DEBUG_INFO=FALSE
+emcmake cmake -DSLANG_GENERATORS_PATH=generators/bin --preset emscripten -DSLANG_SLANG_LLVM_FLAVOR=DISABLE -DSLANG_ENABLE_SPLIT_DEBUG_INFO=FALSE -DCMAKE_BUILD_TYPE=Debug
 cmake --build --preset emscripten --target slang-wasm
 
 cmakeRet=$?
@@ -65,8 +65,8 @@ if [ $cmakeRet -ne 0 ]; then
     exit -1;
 fi
 
-cp slang-repo/slang/build.em/Release/bin/* ./
-cp slang-repo/slang/build.em/Release/bin/* ./
+cp slang-repo/slang/build.em/Debug/bin/* ./
+cp slang-repo/slang/build.em/Debug/bin/* ./
 gzip -c slang-wasm.wasm > slang-wasm.wasm.gz
 
 rm key.txt
