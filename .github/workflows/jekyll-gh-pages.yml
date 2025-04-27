@@ -37,7 +37,7 @@ jobs:
           pushd slang-repo
           git clone https://github.com/shader-slang/slang.git
           pushd slang
-          git checkout a4dc6247ade19eac03e0643d56f0877d39aaec6e
+          git checkout 1e86f5657d38ae5bab0ced7dc17aeda48198fdd5
           popd
           popd
           echo "$(git -C slang-repo/slang rev-parse HEAD)" >> key.txt
