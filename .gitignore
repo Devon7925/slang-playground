@@ -32,6 +32,7 @@ coverage
 slang-wasm.js
 slang-wasm.d.ts
 slang-wasm.wasm
+slang-wasm.wasm.map
 slang-wasm.wasm.gz
 spirv-tools.js
 spirv-tools.d.ts
