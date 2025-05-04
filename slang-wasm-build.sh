@@ -94,7 +94,7 @@ fi
 
 popd
 
-cp slang-repo/build.em/RelWithDebInfo/bin/* ./
+cp slang-repo/build.em/Debug/bin/* ./
 gzip -c slang-wasm.wasm > slang-wasm.wasm.gz
 
 git -C ./slang-repo rev-parse HEAD > key.txt
