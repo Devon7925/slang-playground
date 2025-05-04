@@ -43,6 +43,7 @@ sed -i '/^[[:space:]]*target_link_options(/,/^[[:space:]]*)/c\
     target_link_options(slang-wasm PUBLIC\
         \"--bind\"\
         --emit-tsd \"$<TARGET_FILE_DIR:slang-wasm>/slang-wasm.d.ts\"\
+		--source-map-base \"http://localhost:5173/src/\"\
         -sMODULARIZE=1\
         -sEXPORT_ES6=1\
         -sEXPORTED_RUNTIME_METHODS=['FS']\
@@ -75,8 +76,8 @@ if ! emcmake cmake \
     --preset emscripten \
     -DSLANG_ENABLE_RELEASE_LTO=OFF \
 	-DCMAKE_BUILD_TYPE=RelWithDebInfo \
-	-DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-gsource-map -Os -sSOURCE_MAP_BASE=http://localhost:5173/src/" \
-	-DCMAKE_C_FLAGS_RELWITHDEBINFO="-gsource-map -Os -sSOURCE_MAP_BASE=http://localhost:5173/src/"
+	-DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-gsource-map -Os" \
+	-DCMAKE_C_FLAGS_RELWITHDEBINFO="-gsource-map -Os"
 then
 	echo "Error: emcmake failed."
 	exit 1
