@@ -34,14 +34,6 @@ fi
 pushd slang-repo
 git submodule update --init --recursive
 
-ls
-pushd source
-ls
-pushd slang-wasm
-ls
-popd
-popd
-
 # The `,` syntax in sed specifies a range from the line that starts
 # with `target_link_options(` to the line that has just a `)` (possibly indented).
 #
