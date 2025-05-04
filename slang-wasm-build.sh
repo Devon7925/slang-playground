@@ -86,7 +86,7 @@ cp build/CMakeCache.txt ../../CMakeCache.txt
 cp build.em/CMakeCache.txt ../../CMakeCache.em.txt
 
 echo "[$(date)] Build slang as wasm ..."
-if ! cmake --build --preset emscripten --config Debug --target slang-wasm
+if ! cmake --build --preset emscripten --config RelWithDebInfo --target slang-wasm
 then
 	echo "Build with CMake failed."
 	exit 1
@@ -94,7 +94,7 @@ fi
 
 popd
 
-cp slang-repo/build.em/Debug/bin/* ./
+cp slang-repo/build.em/RelWithDebInfo/bin/* ./
 gzip -c slang-wasm.wasm > slang-wasm.wasm.gz
 
 git -C ./slang-repo rev-parse HEAD > key.txt
