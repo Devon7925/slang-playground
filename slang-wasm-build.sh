@@ -75,8 +75,8 @@ if ! emcmake cmake \
     --preset emscripten \
     -DSLANG_ENABLE_RELEASE_LTO=OFF \
 	-DCMAKE_BUILD_TYPE=RelWithDebInfo \
-	-DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-gsource-map -Os" \
-	-DCMAKE_C_FLAGS_RELWITHDEBINFO="-gsource-map -Os"
+	-DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-gsource-map -Os -sSOURCE_MAP_BASE=http://localhost:5173/src/" \
+	-DCMAKE_C_FLAGS_RELWITHDEBINFO="-gsource-map -Os -sSOURCE_MAP_BASE=http://localhost:5173/src/"
 then
 	echo "Error: emcmake failed."
 	exit 1
