@@ -55,7 +55,7 @@ jobs:
           rm -rf emsdk
           rm -rf spirv-tools
           mkdir dependencies
-          mv ./slang-wasm.wasm.gz ./slang-wasm.js ./slang-wasm.d.ts ./dependencies/
+          mv ./slang-wasm.wasm.gz ./slang-wasm.wasm.map ./slang-wasm.js ./slang-wasm.d.ts ./dependencies/
           mv ./spirv-tools.wasm ./spirv-tools.js ./spirv-tools.d.ts ./dependencies/
 
       - name: Upload export artifact

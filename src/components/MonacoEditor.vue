@@ -1,33 +1,42 @@
 <script setup lang="ts">
-import { useTemplateRef, onMounted, ref, shallowRef, onUnmounted } from 'vue'
+import { useTemplateRef, onMounted, ref, shallowRef, onUnmounted, watch } from 'vue'
 import * as monaco from 'monaco-editor';
 import { initLanguageServer, initMonaco, translateSeverity, userCodeURI } from '@/language-server';
 import { compiler, slangd } from '@/try-slang';
 
 const container = useTemplateRef('container')
 const editor = shallowRef<monaco.editor.IStandaloneCodeEditor>();
-
 let diagnosticTimeout: number | null = null;
 
+const props = defineProps<{ file?: { name: string, uri: string, content: string }, readOnlyMode?: boolean }>()
+const emit = defineEmits(['input'])
+
+const modelMap = new Map<string, monaco.editor.ITextModel>()
+let contentChangeDisposable: monaco.IDisposable | null = null
 
 function setEditorValue(value: string, revealEnd: boolean = false) {
-	editor.value!.setValue(value);
-	if (revealEnd)
-		editor.value!.revealLine(editor.value!.getModel()?.getLineCount() || 0);
-	else
-		editor.value!.revealLine(0);
+	if (!editor.value) return
+	const model = editor.value.getModel()
+	if (model) {
+		model.setValue(value)
+		if (revealEnd)
+			editor.value.revealLine(model.getLineCount() || 0)
+		else
+			editor.value.revealLine(0)
+	}
 }
 
 function appendEditorValue(value: string, revealEnd: boolean = false) {
-	setEditorValue(editor.value!.getValue() + value, revealEnd);
+	setEditorValue((editor.value?.getValue() ?? '') + value, revealEnd);
 }
 
 function getValue() {
-	return editor.value!.getValue();
+	if (!editor.value) return ''
+	return editor.value.getValue()
 }
 
 function setLanguage(language: string) {
-	let model = editor.value!.getModel();
+	let model = editor.value?.getModel();
 	if (model == null) {
 		throw new Error("Could not get editor model");
 	}
@@ -42,26 +51,27 @@ defineExpose({
 })
 
 
-let { readOnlyMode } = defineProps<{
-	readOnlyMode?: boolean
-}>()
-
 onMounted(() => {
-	const preloadCode = "";
 	const wordWrap = "off";
 	if (container.value == null) {
 		throw new Error("Could not find container for editor");
 	}
 	initMonaco();
-	let model = readOnlyMode
-		? monaco.editor.createModel(preloadCode)
-		: monaco.editor.createModel("", "slang", monaco.Uri.parse(userCodeURI));
+	// Create or get model for the file
+	let model: monaco.editor.ITextModel
+	if (props.file) {
+		const uri = monaco.Uri.parse(props.file.uri)
+		model = monaco.editor.getModel(uri) || monaco.editor.createModel(props.file.content, 'slang', uri)
+		modelMap.set(props.file.uri, model)
+	} else {
+		model = monaco.editor.createModel('', 'slang')
+	}
 	editor.value = monaco.editor.create(container.value, {
 		model: model,
-		language: readOnlyMode ? 'csharp' : 'slang',
+		language: props.readOnlyMode ? 'csharp' : 'slang',
 		theme: 'slang-dark',
-		readOnly: readOnlyMode,
-		lineNumbers: readOnlyMode ? "off" : "on",
+		readOnly: props.readOnlyMode,
+		lineNumbers: props.readOnlyMode ? "off" : "on",
 		automaticLayout: true,
 		wordWrap: wordWrap,
 		"semanticHighlighting.enabled": true,
@@ -70,13 +80,42 @@ onMounted(() => {
 			enabled: false
 		},
 	});
-	if (!readOnlyMode) {
-		model.onDidChangeContent(codeEditorChangeContent);
-		model.setValue(preloadCode);
+	if (!props.readOnlyMode && props.file) {
+		if (contentChangeDisposable) contentChangeDisposable.dispose();
+		contentChangeDisposable = model.onDidChangeContent(() => {
+			emit('input', model.getValue())
+		})
 	}
 })
 
+// Watch for file prop changes and switch model
+
+watch(() => props.file, (newFile, oldFile) => {
+	if (!editor.value || !newFile) return
+	let uri = monaco.Uri.parse(newFile.uri)
+	let model = monaco.editor.getModel(uri)
+	if (!model) {
+		model = monaco.editor.createModel(newFile.content, 'slang', uri)
+		modelMap.set(newFile.uri, model)
+	} else {
+		// Always sync model content to file content if different
+		if (model.getValue() !== newFile.content) {
+			model.setValue(newFile.content)
+		}
+	}
+	editor.value.setModel(model)
+	// Attach content change handler for the new model
+	if (!props.readOnlyMode && newFile) {
+		if (contentChangeDisposable) contentChangeDisposable.dispose();
+		contentChangeDisposable = model.onDidChangeContent(() => {
+			emit('input', model.getValue())
+		})
+	}
+}, { immediate: true })
+
+
 onUnmounted(() => {
+	if (contentChangeDisposable) contentChangeDisposable.dispose();
 	if (editor.value != null) {
 		editor.value.getModel()?.dispose();
 		editor.value.dispose();
@@ -102,7 +141,9 @@ function codeEditorChangeContent(e: monaco.editor.IModelContentChangedEvent) {
 			}
 		));
 	try {
-		slangd.didChangeTextDocument(userCodeURI, lspChanges);
+		// Use the current file's URI for diagnostics and LSP
+		const uri = editor.value?.getModel()?.uri.toString() || userCodeURI;
+		slangd.didChangeTextDocument(uri, lspChanges);
 		if (diagnosticTimeout != null) {
 			clearTimeout(diagnosticTimeout);
 		}
@@ -110,7 +151,7 @@ function codeEditorChangeContent(e: monaco.editor.IModelContentChangedEvent) {
 			if (slangd == null) {
 				throw new Error("Slang is undefined!");
 			}
-			let diagnostics = slangd.getDiagnostics(userCodeURI);
+			let diagnostics = slangd.getDiagnostics(uri);
 			let model = editor.value?.getModel();
 			if (model == null) {
 				throw new Error("Could not get editor model");
@@ -145,7 +186,6 @@ function codeEditorChangeContent(e: monaco.editor.IModelContentChangedEvent) {
 	finally {
 		lspChanges.delete();
 	}
-
 }
 </script>
 

@@ -70,7 +70,13 @@ then
 fi
 
 echo "[$(date)] Setup slang-wasm configuration ..."
-if ! emcmake cmake -DSLANG_GENERATORS_PATH=generators/bin --preset emscripten -DSLANG_ENABLE_RELEASE_LTO=OFF
+if ! emcmake cmake \
+    -DSLANG_GENERATORS_PATH=generators/bin \
+    --preset emscripten \
+    -DSLANG_ENABLE_RELEASE_LTO=OFF \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DCMAKE_CXX_FLAGS_DEBUG="-g -gsource-map -O0" \
+    -DCMAKE_C_FLAGS_DEBUG="-g -gsource-map -O0"
 then
 	echo "Error: emcmake failed."
 	exit 1
@@ -80,7 +86,7 @@ cp build/CMakeCache.txt ../../CMakeCache.txt
 cp build.em/CMakeCache.txt ../../CMakeCache.em.txt
 
 echo "[$(date)] Build slang as wasm ..."
-if ! cmake --build --preset emscripten --target slang-wasm
+if ! cmake --build --preset emscripten --config Debug --target slang-wasm
 then
 	echo "Build with CMake failed."
 	exit 1
@@ -88,7 +94,7 @@ fi
 
 popd
 
-cp slang-repo/build.em/Release/bin/* ./
+cp slang-repo/build.em/Debug/bin/* ./
 gzip -c slang-wasm.wasm > slang-wasm.wasm.gz
 
 git -C ./slang-repo rev-parse HEAD > key.txt

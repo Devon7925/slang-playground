@@ -18,8 +18,92 @@ import ReflectionView from './components/ReflectionView.vue'
 import Colorpick from './components/ui/Colorpick.vue'
 import { useWindowSize } from '@vueuse/core'
 
+
 // MonacoEditor is a big component, so we load it asynchronously.
 const MonacoEditor = defineAsyncComponent(() => import('./components/MonacoEditor.vue'))
+import FileTabs from './components/ui/FileTabs.vue'
+
+// Multi-file state
+type FileTab = {
+    name: string
+    uri: string
+    content: string
+    isDirty?: boolean
+}
+
+
+const openFiles = ref<FileTab[]>([
+    { name: 'user.slang', uri: 'file:///user.slang', content: '', isDirty: false }
+])
+const activeFileIndex = ref(0)
+
+// --- FS Sync Utilities ---
+function syncFileToFS(file: FileTab) {
+    if (!compiler || !compiler.slangWasmModule || !compiler.slangWasmModule.FS) throw new Error("Could not write to file: dependency missing");
+    const FS = compiler.slangWasmModule.FS;
+    FS.writeFile(file.name, file.content);
+}
+
+
+function addFile() {
+    // Find next untitled name
+    let idx = 1
+    let name: string
+    do {
+        name = `untitled-${idx}.slang`
+        idx++
+    } while (openFiles.value.some(f => f.name === name))
+    const uri = `file:///${name}`
+    const newFile = { name, uri, content: '', isDirty: false }
+    openFiles.value.push(newFile)
+    activeFileIndex.value = openFiles.value.length - 1
+    syncFileToFS(newFile)
+}
+
+function selectFile(idx: number) {
+    activeFileIndex.value = idx
+}
+
+function closeFile(idx: number) {
+    if (openFiles.value.length === 1) return
+    openFiles.value.splice(idx, 1)
+    if (activeFileIndex.value >= openFiles.value.length) {
+        activeFileIndex.value = openFiles.value.length - 1
+    }
+}
+
+// Keep codeEditor in sync with active file
+import type { ComponentPublicInstance } from 'vue'
+// Helper to get methods from MonacoEditor
+function getMonacoEditorMethods(refObj: any) {
+    // The actual component instance is under .value, and methods are exposed via expose()
+    return refObj?.value as undefined | (ComponentPublicInstance & {
+        getValue?: () => string,
+        setEditorValue?: (v: string) => void,
+        setLanguage?: (lang: string) => void
+    })
+}
+
+watch(activeFileIndex, (newIdx, oldIdx) => {
+    // Save current content
+    const editor = getMonacoEditorMethods(codeEditor)
+    if (editor && openFiles.value[oldIdx]) {
+        openFiles.value[oldIdx].content = editor.getValue ? editor.getValue() : ''
+    }
+    // Set editor to new file content
+    if (editor && openFiles.value[newIdx]) {
+        editor.setEditorValue && editor.setEditorValue(openFiles.value[newIdx].content)
+    }
+})
+
+// When Monaco emits changes, update the file content
+
+function onEditorInput(val: string) {
+    const file = openFiles.value[activeFileIndex.value]
+    file.content = val
+    file.isDirty = true
+    syncFileToFS(file)
+}
 
 // target -> profile mappings
 const defaultShaderURL = "circle.slang";
@@ -166,7 +250,7 @@ async function onShare() {
         throw new Error("Share button not initialized");
     };
     try {
-        const code = codeEditor.value.getValue();
+        const code = getMonacoEditorMethods(codeEditor)?.getValue?.() ?? '';
         const compressed = await compressToBase64URL(code);
         let url = new URL(window.location.href.split('?')[0]);
         const compileTarget = targetSelect.value!.getValue();
@@ -196,7 +280,7 @@ function loadDemo(selectedDemoURL: string) {
         fetch(finalURL)
             .then((response) => response.text())
             .then((data) => {
-                codeEditor.value?.setEditorValue(data);
+                getMonacoEditorMethods(codeEditor)?.setEditorValue?.(data);
                 updateEntryPointOptions();
                 compileOrRun();
             });
@@ -207,13 +291,13 @@ function loadDemo(selectedDemoURL: string) {
 function updateEntryPointOptions() {
     if (!compiler)
         return;
-    entrypoints.value = compiler.findDefinedEntryPoints(codeEditor.value!.getValue());
+    entrypoints.value = compiler.findDefinedEntryPoints(getMonacoEditorMethods(codeEditor)?.getValue?.() ?? '');
     if ((selectedEntrypoint.value == "" || !entrypoints.value.includes(selectedEntrypoint.value)) && entrypoints.value.length > 0)
         selectedEntrypoint.value = entrypoints.value[0];
 }
 
 function compileOrRun() {
-    const userSource = codeEditor.value!.getValue();
+    const userSource = getMonacoEditorMethods(codeEditor)?.getValue?.() ?? '';
     const shaderType = checkShaderType(userSource);
 
     if (shaderType == null) {
@@ -260,14 +344,14 @@ function tryRun() {
     if (!renderCanvas.value) {
         throw new Error("WebGPU is not supported in this browser");
     }
-    const userSource = codeEditor.value!.getValue()
+    const userSource = getMonacoEditorMethods(codeEditor)?.getValue?.() ?? '';
 
     // We will have some restrictions on runnable shader, the user code has to define imageMain or printMain function.
     // We will do a pre-filter on the user input source code, if it's not runnable, we will not run it.
     const shaderType = checkShaderType(userSource);
     if (shaderType == null) {
         toggleDisplayMode(null);
-        codeGenArea.value?.setEditorValue("");
+        getMonacoEditorMethods(codeGenArea)?.setEditorValue?.("");
         throw new Error("Error: In order to run the shader, please define either imageMain or printMain function in the shader code.");
     }
 
@@ -333,7 +417,7 @@ async function onCompile() {
         await compiler.initSpirvTools();
 
     // compile the compute shader code from input text area
-    const userSource = codeEditor.value!.getValue();
+    const userSource = getMonacoEditorMethods(codeEditor)?.getValue?.() ?? '';
     compileShader(userSource, selectedEntrypoint.value, compileTarget);
 
     if (compiler.diagnosticsMsg.length > 0) {
@@ -366,15 +450,15 @@ function compileShader(userSource: string, entryPoint: string, compileTarget: ty
 
     // If compile is failed, we just clear the codeGenArea
     if (!compiledResult) {
-        codeGenArea.value?.setEditorValue('Compilation returned empty result.');
+        getMonacoEditorMethods(codeGenArea)?.setEditorValue?.('Compilation returned empty result.');
         return { succ: false };
     }
 
     let [compiledCode, layout, hashedStrings, reflectionJsonObj, threadGroupSizes] = compiledResult;
     reflectionJson = reflectionJsonObj;
 
-    codeGenArea.value?.setEditorValue(compiledCode);
-    codeGenArea.value?.setLanguage(targetLanguageMap[compileTarget]);
+    getMonacoEditorMethods(codeGenArea)?.setEditorValue?.(compiledCode);
+    getMonacoEditorMethods(codeGenArea)?.setLanguage?.(targetLanguageMap[compileTarget]);
 
     // Update reflection info.
     window.$jsontree.setJson("reflectionDiv", reflectionJson);
@@ -410,7 +494,7 @@ function restoreFromURL(): boolean {
     const code = urlParams.get('code');
     if (code) {
         decompressFromBase64URL(code).then((decompressed) => {
-            codeEditor.value!.setEditorValue(decompressed);
+            getMonacoEditorMethods(codeEditor)?.setEditorValue?.(decompressed);
             updateEntryPointOptions();
             compileOrRun();
         });
@@ -430,7 +514,7 @@ async function runIfFullyInitialized() {
 
         if (gotCodeFromUrl) {
             // do nothing: code already set
-        } else if (codeEditor.value.getValue() == "") {
+        } else if ((getMonacoEditorMethods(codeEditor)?.getValue?.() ?? '') == "") {
             loadDemo(defaultShaderURL);
         } else {
             compileOrRun();
@@ -604,7 +688,12 @@ function logError(message: string) {
             </TabContainer>
         </Teleport>
         <Teleport v-if="pageLoaded" defer :to="isSmallScreen ? '#small-screen-editor' : '#big-screen-editor'">
-            <MonacoEditor class="codingSpace" ref="codeEditor" @vue:mounted="runIfFullyInitialized()" />
+            <div style="display: flex; flex-direction: column; height: 100%">
+                <FileTabs :files="openFiles" :activeIndex="activeFileIndex" @add="addFile" @select="selectFile"
+                    @close="closeFile" />
+                <MonacoEditor class="codingSpace" ref="codeEditor" :file="openFiles[activeFileIndex]"
+                    @input="onEditorInput" @vue:mounted="runIfFullyInitialized()" />
+            </div>
         </Teleport>
     </div>
     <Help v-show="showHelp" ref="helpModal"></Help>

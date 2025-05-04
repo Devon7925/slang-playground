@@ -218,17 +218,28 @@ export class SlangCompiler {
             if (!slangSession) {
                 return [];
             }
-            let module: Module | null = null;
+            // --- Load all user .slang files except playground.slang ---
+            const FS = this.slangWasmModule.FS;
+            let files: string[] = [];
+            try {
+                files = FS.readdir('/').filter((f: string) => f.endsWith('.slang') && f !== 'playground.slang');
+            } catch (e) { }
+            for (const fname of files) {
+                try {
+                    const content = new TextDecoder().decode(FS.readFile('/' + fname));
+                    slangSession.loadModuleFromSource(content, fname.replace(/\.slang$/, ''), '/' + fname);
+                } catch (e) { }
+            }
             if (runnable.length > 0) {
                 slangSession.loadModuleFromSource(playgroundSource, "playground", "/playground.slang");
             }
-            module = slangSession.loadModuleFromSource(shaderSource, "user", "/user.slang");
+            // Always load user.slang last (so it can import others)
+            let module = slangSession.loadModuleFromSource(shaderSource, "user", "/user.slang");
             if (!module) {
                 const error = this.slangWasmModule.getLastError();
                 console.error(error.type + " error: " + error.message);
                 return result;
             }
-
             const count = module.getDefinedEntryPointCount();
             for (let i = 0; i < count; i++) {
                 const entryPoint = module.getDefinedEntryPoint(i);
@@ -471,7 +482,21 @@ export class SlangCompiler {
 
             let components: Module[] = [];
 
-            let userModuleIndex = 0;
+            // --- Load all user .slang files except playground.slang and user.slang ---
+            const FS = this.slangWasmModule.FS;
+            let files: string[] = [];
+            try {
+                files = FS.readdir('/').filter((f: string) => f.endsWith('.slang') && f !== 'playground.slang');
+            } catch (e) { }
+            for (const fname of files) {
+                try {
+                    const content = new TextDecoder().decode(FS.readFile('/' + fname));
+                    console.log(`${fname}: ${FS.readFile(fname, { encoding: 'utf8' })}`);
+                    this.loadModule(slangSession, fname.replace(/\.slang$/, ''), content, components);
+                } catch (e) { }
+            }
+
+            let userModuleIndex = components.length;
             if (shouldLinkPlaygroundModule) {
                 if (!this.loadModule(slangSession, "playground", playgroundSource, components))
                     return null;
