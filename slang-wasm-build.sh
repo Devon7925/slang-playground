@@ -34,8 +34,12 @@ fi
 pushd slang-repo
 git submodule update --init --recursive
 
-pushd source/slang-wasm
 ls
+pushd source
+ls
+pushd slang-wasm
+ls
+popd
 popd
 
 # The `,` syntax in sed specifies a range from the line that starts
