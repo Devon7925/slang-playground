@@ -39,9 +39,23 @@ const activeFileIndex = ref(0)
 
 // --- FS Sync Utilities ---
 function syncFileToFS(file: FileTab) {
-    if (!compiler || !compiler.slangWasmModule || !compiler.slangWasmModule.FS) throw new Error("Could not write to file: dependency missing");
+    if (!compiler || !compiler.slangWasmModule || !compiler.slangWasmModule.FS) return;
     const FS = compiler.slangWasmModule.FS;
-    FS.writeFile(file.name, file.content);
+    const filename = file.name;
+    const path = '/' + filename;
+    let data = new TextEncoder().encode(file.content);
+    // Check if file exists
+    let exists = false;
+    try {
+        FS.stat(path, false);
+        exists = true;
+    } catch (e) {
+        exists = false;
+    }
+    if (!exists) {
+        FS.createDataFile('/', filename, new DataView(data.buffer), true, true, false);
+    }
+    FS.writeFile('/' + filename, file.content);
 }
 
 
