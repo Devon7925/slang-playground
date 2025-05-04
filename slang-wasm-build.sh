@@ -74,9 +74,9 @@ if ! emcmake cmake \
     -DSLANG_GENERATORS_PATH=generators/bin \
     --preset emscripten \
     -DSLANG_ENABLE_RELEASE_LTO=OFF \
-    -DCMAKE_BUILD_TYPE=Debug \
-    -DCMAKE_CXX_FLAGS_DEBUG="-g -gsource-map -O1 -sMAX_LOCAL_COUNT=500" \
-    -DCMAKE_C_FLAGS_DEBUG="-g -gsource-map -O1 -sMAX_LOCAL_COUNT=500"
+	-DCMAKE_BUILD_TYPE=RelWithDebInfo \
+	-DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-gsource-map -Os" \
+	-DCMAKE_C_FLAGS_RELWITHDEBINFO="-gsource-map -Os"
 then
 	echo "Error: emcmake failed."
 	exit 1
@@ -94,7 +94,7 @@ fi
 
 popd
 
-cp slang-repo/build.em/Debug/bin/* ./
+cp slang-repo/build.em/RelWithDebInfo/bin/* ./
 gzip -c slang-wasm.wasm > slang-wasm.wasm.gz
 
 git -C ./slang-repo rev-parse HEAD > key.txt
