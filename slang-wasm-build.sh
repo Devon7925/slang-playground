@@ -76,8 +76,8 @@ if ! emcmake cmake \
     --preset emscripten \
     -DSLANG_ENABLE_RELEASE_LTO=OFF \
 	-DCMAKE_BUILD_TYPE=RelWithDebInfo \
-	-DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-gsource-map=1 -Os" \
-	-DCMAKE_C_FLAGS_RELWITHDEBINFO="-gsource-map=1 -Os"
+	-DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-gsource-map=inline -Os" \
+	-DCMAKE_C_FLAGS_RELWITHDEBINFO="-gsource-map=inline -Os"
 then
 	echo "Error: emcmake failed."
 	exit 1
