@@ -75,8 +75,8 @@ if ! emcmake cmake \
     --preset emscripten \
     -DSLANG_ENABLE_RELEASE_LTO=OFF \
     -DCMAKE_BUILD_TYPE=Debug \
-    -DCMAKE_CXX_FLAGS_DEBUG="-g -gsource-map -O0" \
-    -DCMAKE_C_FLAGS_DEBUG="-g -gsource-map -O0"
+    -DCMAKE_CXX_FLAGS_DEBUG="-g -gsource-map -O1 -sMAX_LOCAL_COUNT=500" \
+    -DCMAKE_C_FLAGS_DEBUG="-g -gsource-map -O1 -sMAX_LOCAL_COUNT=500"
 then
 	echo "Error: emcmake failed."
 	exit 1
