@@ -816,7 +816,7 @@ function onRun(runCompiledCode: CompiledPlayground) {
 
             let outputTexture = allocatedResources.get("outputTexture");
             if (!(outputTexture instanceof GPUTexture)) {
-                throw new Error("");
+                throw new Error("Output texture doesn't exist");
             }
             passThroughPipeline.inputTexture = outputTexture;
             passThroughPipeline.createBindGroup();

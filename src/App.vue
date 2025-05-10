@@ -305,13 +305,15 @@ function loadDemo(selectedDemoURL: string) {
 function updateEntryPointOptions() {
     if (!compiler)
         return;
-    entrypoints.value = compiler.findDefinedEntryPoints(getMonacoEditorMethods(codeEditor)?.getValue?.() ?? '');
+    entrypoints.value = compiler.findDefinedEntryPoints();
     if ((selectedEntrypoint.value == "" || !entrypoints.value.includes(selectedEntrypoint.value)) && entrypoints.value.length > 0)
         selectedEntrypoint.value = entrypoints.value[0];
 }
 
 function compileOrRun() {
-    const userSource = getMonacoEditorMethods(codeEditor)?.getValue?.() ?? '';
+    if(!compiler) throw new Error("Could not get compiler")
+    const FS = compiler.slangWasmModule.FS;
+    const userSource = new TextDecoder().decode(FS.readFile('/user.slang'));
     const shaderType = checkShaderType(userSource);
 
     if (shaderType == null) {
@@ -358,7 +360,9 @@ function tryRun() {
     if (!renderCanvas.value) {
         throw new Error("WebGPU is not supported in this browser");
     }
-    const userSource = getMonacoEditorMethods(codeEditor)?.getValue?.() ?? '';
+    if(!compiler) throw new Error("Could not get compiler")
+    const FS = compiler.slangWasmModule.FS;
+    const userSource = new TextDecoder().decode(FS.readFile('/user.slang'));
 
     // We will have some restrictions on runnable shader, the user code has to define imageMain or printMain function.
     // We will do a pre-filter on the user input source code, if it's not runnable, we will not run it.
@@ -431,7 +435,8 @@ async function onCompile() {
         await compiler.initSpirvTools();
 
     // compile the compute shader code from input text area
-    const userSource = getMonacoEditorMethods(codeEditor)?.getValue?.() ?? '';
+    const FS = compiler.slangWasmModule.FS;
+    const userSource = new TextDecoder().decode(FS.readFile('/user.slang'));
     compileShader(userSource, selectedEntrypoint.value, compileTarget);
 
     if (compiler.diagnosticsMsg.length > 0) {

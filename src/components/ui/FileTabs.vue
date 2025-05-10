@@ -3,15 +3,13 @@
         <div v-for="(file, idx) in files" :key="file.uri" :class="['file-tab', { active: idx === activeIndex }]"
             @click="$emit('select', idx)">
             <span class="file-name">{{ file.name }}</span>
-            <button v-if="files.length > 1" class="close-btn" @click.stop="$emit('close', idx)">&times;</button>
+            <button v-if="file.name !== 'user.slang' && files.length > 1" class="close-btn" @click.stop="$emit('close', idx)">&times;</button>
         </div>
-        <button class="add-btn" @click="$emit('add')">+</button>
+        <button type="button" class="add-btn" @click="$emit('add')">+</button>
     </div>
 </template>
 
 <script setup lang="ts">
-import { defineProps, defineEmits } from 'vue'
-
 type FileTab = {
     name: string
     uri: string
@@ -66,6 +64,7 @@ defineEmits(['select', 'add', 'close'])
     font-size: 14px;
     cursor: pointer;
     margin-left: 2px;
+    padding: 0;
 }
 
 .close-btn:hover {
@@ -83,6 +82,7 @@ defineEmits(['select', 'add', 'close'])
     height: 28px;
     border-radius: 50%;
     transition: background 0.15s;
+    padding: 0;
 }
 
 .add-btn:hover {

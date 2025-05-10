@@ -63,7 +63,7 @@ export type ReflectionParameter = {
 }
 
 export type ReflectionJSON = {
-    "entryPoints": ReflectionEntryPoint[],
+    "entryPoints"?: ReflectionEntryPoint[],
     "parameters": ReflectionParameter[],
     "hashedStrings": { [str: string]: number },
 };
@@ -203,11 +203,13 @@ export class SlangCompiler {
     // already defined in our pre-built module. So we will add those one of those entry points to the
     // dropdown list. Then, we will find whether user code also defines other entry points, if it has
     // we will also add them to the dropdown list.
-    findDefinedEntryPoints(shaderSource: string): string[] {
+    findDefinedEntryPoints(): string[] {
         let result: string[] = [];
         let runnable: string[] = [];
+        const FS = this.slangWasmModule.FS;
+        const userSource = new TextDecoder().decode(FS.readFile('/user.slang'));
         for (let entryPointName of RUNNABLE_ENTRY_POINT_NAMES) {
-            if (shaderSource.match(entryPointName)) {
+            if (userSource.match(entryPointName)) {
                 runnable.push(entryPointName);
             }
         }
@@ -219,22 +221,17 @@ export class SlangCompiler {
                 return [];
             }
             // --- Load all user .slang files except playground.slang ---
-            const FS = this.slangWasmModule.FS;
             let files: string[] = [];
-            try {
-                files = FS.readdir('/').filter((f: string) => f.endsWith('.slang') && f !== 'playground.slang');
-            } catch (e) { }
+            files = FS.readdir('/').filter((f: string) => f.endsWith('.slang') && f !== 'playground.slang' && f !== 'user.slang');
             for (const fname of files) {
-                try {
-                    const content = new TextDecoder().decode(FS.readFile('/' + fname));
-                    slangSession.loadModuleFromSource(content, fname.replace(/\.slang$/, ''), '/' + fname);
-                } catch (e) { }
+                const content = new TextDecoder().decode(FS.readFile('/' + fname));
+                slangSession.loadModuleFromSource(content, fname.replace(/\.slang$/, ''), '/' + fname);
             }
             if (runnable.length > 0) {
                 slangSession.loadModuleFromSource(playgroundSource, "playground", "/playground.slang");
             }
             // Always load user.slang last (so it can import others)
-            let module = slangSession.loadModuleFromSource(shaderSource, "user", "/user.slang");
+            let module = slangSession.loadModuleFromSource(userSource, "user", "/user.slang");
             if (!module) {
                 const error = this.slangWasmModule.getLastError();
                 console.error(error.type + " error: " + error.message);
@@ -246,6 +243,7 @@ export class SlangCompiler {
                 result.push(entryPoint.getName());
             }
         } catch (e) {
+            console.error(e);
             return [];
         }
         finally {
@@ -299,7 +297,7 @@ export class SlangCompiler {
         return mainModule;
     }
 
-    addActiveEntryPoints(slangSession: Session, shaderSource: string, entryPointName: string, isWholeProgram: boolean, userModule: Module, componentList: Module[]) {
+    addActiveEntryPoints(slangSession: Session, entryPointName: string, isWholeProgram: boolean, userModule: Module, componentList: Module[]) {
         if (entryPointName == "" && !isWholeProgram) {
             this.diagnosticsMsg += ("error: No entry point specified");
             return false;
@@ -341,7 +339,7 @@ export class SlangCompiler {
         // otherwise, it's a whole program compilation, we will find all active entry points in the user code
         // and pre-built modules.
         else {
-            const results = this.findDefinedEntryPoints(shaderSource);
+            const results = this.findDefinedEntryPoints();
             for (let i = 0; i < results.length; i++) {
                 if (this.isRunnableEntryPoint(results[i])) {
                     const mainProgram = this.getPrecompiledProgram(slangSession, results[i]);
@@ -485,15 +483,10 @@ export class SlangCompiler {
             // --- Load all user .slang files except playground.slang and user.slang ---
             const FS = this.slangWasmModule.FS;
             let files: string[] = [];
-            try {
-                files = FS.readdir('/').filter((f: string) => f.endsWith('.slang') && f !== 'playground.slang');
-            } catch (e) { }
+            files = FS.readdir('/').filter((f: string) => f.endsWith('.slang') && f !== 'playground.slang' && f !== 'user.slang');
             for (const fname of files) {
-                try {
-                    const content = new TextDecoder().decode(FS.readFile('/' + fname));
-                    console.log(`${fname}: ${FS.readFile(fname, { encoding: 'utf8' })}`);
-                    this.loadModule(slangSession, fname.replace(/\.slang$/, ''), content, components);
-                } catch (e) { }
+                const content = new TextDecoder().decode(FS.readFile('/' + fname));
+                this.loadModule(slangSession, fname.replace(/\.slang$/, ''), content, components);
             }
 
             let userModuleIndex = components.length;
@@ -504,7 +497,7 @@ export class SlangCompiler {
             }
             if (!this.loadModule(slangSession, "user", shaderSource, components))
                 return null;
-            if (this.addActiveEntryPoints(slangSession, shaderSource, entryPointName, isWholeProgram, components[userModuleIndex], components) == false)
+            if (this.addActiveEntryPoints(slangSession, entryPointName, isWholeProgram, components[userModuleIndex], components) == false)
                 return null;
             let program: ComponentType = slangSession.createCompositeComponentType(components);
             let linkedProgram: ComponentType = program.link();
@@ -548,8 +541,10 @@ export class SlangCompiler {
 
             // Also read the shader work-group sizes.
             let threadGroupSizes: { [key: string]: [number, number, number] } = {};
-            for (const entryPoint of reflectionJson.entryPoints) {
-                threadGroupSizes[entryPoint.name] = entryPoint.threadGroupSize;
+            if (reflectionJson.entryPoints) {
+                for (const entryPoint of reflectionJson.entryPoints) {
+                    threadGroupSizes[entryPoint.name] = entryPoint.threadGroupSize;
+                }
             }
 
             if (outCode == "") {
@@ -570,10 +565,12 @@ export class SlangCompiler {
             // typescript is missing the type for WebAssembly.Exception
             if (typeof e === 'object' && e !== null && e.constructor.name === 'Exception') {
                 this.diagnosticsMsg += "Slang internal error occurred.\n";
+                throw e;
             } else if (e instanceof Error) {
                 this.diagnosticsMsg += e.message;
+                throw e;
             }
-            return null;
+            throw e;
         }
     }
 };

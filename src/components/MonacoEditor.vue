@@ -88,32 +88,6 @@ onMounted(() => {
 	}
 })
 
-// Watch for file prop changes and switch model
-
-watch(() => props.file, (newFile, oldFile) => {
-	if (!editor.value || !newFile) return
-	let uri = monaco.Uri.parse(newFile.uri)
-	let model = monaco.editor.getModel(uri)
-	if (!model) {
-		model = monaco.editor.createModel(newFile.content, 'slang', uri)
-		modelMap.set(newFile.uri, model)
-	} else {
-		// Always sync model content to file content if different
-		if (model.getValue() !== newFile.content) {
-			model.setValue(newFile.content)
-		}
-	}
-	editor.value.setModel(model)
-	// Attach content change handler for the new model
-	if (!props.readOnlyMode && newFile) {
-		if (contentChangeDisposable) contentChangeDisposable.dispose();
-		contentChangeDisposable = model.onDidChangeContent(() => {
-			emit('input', model.getValue())
-		})
-	}
-}, { immediate: true })
-
-
 onUnmounted(() => {
 	if (contentChangeDisposable) contentChangeDisposable.dispose();
 	if (editor.value != null) {
@@ -148,14 +122,14 @@ function codeEditorChangeContent(e: monaco.editor.IModelContentChangedEvent) {
 			clearTimeout(diagnosticTimeout);
 		}
 		diagnosticTimeout = setTimeout(() => {
+			// Guard: only run if editor/model still exist
+			if (!editor.value) return;
+			const model = editor.value.getModel();
+			if (!model) return;
 			if (slangd == null) {
 				throw new Error("Slang is undefined!");
 			}
 			let diagnostics = slangd.getDiagnostics(uri);
-			let model = editor.value?.getModel();
-			if (model == null) {
-				throw new Error("Could not get editor model");
-			}
 			if (diagnostics == null) {
 				monaco.editor.setModelMarkers(model, "slang", []);
 				return;
