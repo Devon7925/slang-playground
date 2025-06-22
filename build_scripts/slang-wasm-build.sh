@@ -87,7 +87,6 @@ fi
 popd
 
 cp slang-repo/build.em/Release/bin/* ./
-gzip -c slang-wasm.wasm > slang-wasm.wasm.gz
 
 git -C ./slang-repo rev-parse HEAD > key.txt
 echo "key: $(cat key.txt)"

@@ -43,7 +43,7 @@ runs:
       uses: actions/cache/restore@v4
       with:
         path: |
-          ./slang-wasm.wasm.gz
+          ./slang-wasm.wasm
           ./slang-wasm.js
           ./slang-wasm.d.ts
         key: ${{ hashFiles('key.txt') }}
@@ -69,7 +69,7 @@ runs:
       uses: actions/cache/save@v4
       with:
         path: |
-          ./slang-wasm.wasm.gz
+          ./slang-wasm.wasm
           ./slang-wasm.js
           ./slang-wasm.d.ts
         key: ${{ hashFiles('key.txt') }}
