@@ -44,6 +44,7 @@ sed -i '/^[[:space:]]*target_link_options(/,/^[[:space:]]*)/c\
         \"--bind\"\
         --emit-tsd \"$<TARGET_FILE_DIR:slang-wasm>/slang-wasm.d.ts\"\
         -sMODULARIZE=1\
+        -sEXPORT_ES6=1\
   		-sENVIRONMENT="worker"\
         -sEXPORTED_RUNTIME_METHODS=['FS']\
     )' "source/slang-wasm/CMakeLists.txt"
