@@ -245,6 +245,8 @@ function updateEntryPointOptions() {
 }
 
 async function doRun(forceCompile: boolean) {
+    if (compiler == null) throw new Error("Compiler doesn't exist");
+
     smallScreenEditorVisible.value = false;
     diagnosticsText.value = "";
     imageOutputDisplayed.value = false;
@@ -255,12 +257,21 @@ async function doRun(forceCompile: boolean) {
         throw new Error("WebGPU is not supported in this browser");
     }
     const userSource = codeEditor.value!.getValue()
+    const compileTarget = forceCompile ? targetSelect.value!.getValue() : "WGSL";
+    const entryPoint = forceCompile ? selectedEntrypoint.value : null;
+
+    if (compileTarget == "SPIRV")
+        await compiler.initSpirvTools(spirvTools);
 
     // Todo: Readd working entrypoint selection
-    const compilationResult = await compileShader(userSource, null, "WGSL");
+    const compilationResult = await compileShader(userSource, entryPoint, compileTarget);
 
     if (compilationResult.succ == false) {
         // compileShader takes care of diagnostics already, so they aren't added here
+        return;
+    }
+
+    if (forceCompile) {
         return;
     }
 
@@ -271,44 +282,46 @@ async function doRun(forceCompile: boolean) {
         }
     }
 
-    if (!forceCompile && isRunnable) {
-        if(device.value == null) {
-            if (diagnosticsText.value == "")
-                diagnosticsText.value += `The shader compiled successfully, ` +
-                    `but it cannot run because your browser does not support WebGPU.\n` +
-                    `WebGPU is supported in Chrome, Edge, Firefox Nightly and Safari Technology Preview. ` +
-                    `On iOS, WebGPU support requires Safari 16.4 or later and must be enabled in settings. ` +
-                    `Please check your browser version and enable WebGPU if possible.`;
-            return;
-        }
-        const compiledPlaygroundResult = compilePlayground(compilationResult.result, window.location.href + 'user.slang');
-
-        if (compiledPlaygroundResult.succ == false) {
-            diagnosticsText.value += compiledPlaygroundResult.message;
-            if (compiledPlaygroundResult.log) {
-                diagnosticsText.value += "\n" + compiledPlaygroundResult.log;
-            }
-            return;
-        }
-
-        const compiledPlayground = compiledPlaygroundResult.result;
-
-        uniformComponents.value = compiledPlayground.uniformComponents
-
-        if (areAnyUniformsRendered.value) {
-            tabContainer.value?.setActiveTab("uniforms")
-        }
-        for (let outputType of compiledPlayground.outputTypes) {
-            if (outputType == "image") {
-                imageOutputDisplayed.value = true;
-            } else if (outputType == "printing") {
-                printOutputDisplayed.value = true;
-                tabContainer.value?.setActiveTab("output")
-            }
-        }
-        shaderRunning.value = true;
-        renderCanvas.value.onRun(compiledPlayground);
+    if (!isRunnable) {
+        return;
     }
+
+    if(device.value == null) {
+        if (diagnosticsText.value == "")
+            diagnosticsText.value += `The shader compiled successfully, ` +
+                `but it cannot run because your browser does not support WebGPU.\n` +
+                `WebGPU is supported in Chrome, Edge, Firefox Nightly and Safari Technology Preview. ` +
+                `On iOS, WebGPU support requires Safari 16.4 or later and must be enabled in settings. ` +
+                `Please check your browser version and enable WebGPU if possible.`;
+        return;
+    }
+    const compiledPlaygroundResult = compilePlayground(compilationResult.result, window.location.href + 'user.slang');
+
+    if (compiledPlaygroundResult.succ == false) {
+        diagnosticsText.value += compiledPlaygroundResult.message;
+        if (compiledPlaygroundResult.log) {
+            diagnosticsText.value += "\n" + compiledPlaygroundResult.log;
+        }
+        return;
+    }
+
+    const compiledPlayground = compiledPlaygroundResult.result;
+
+    uniformComponents.value = compiledPlayground.uniformComponents
+
+    if (areAnyUniformsRendered.value) {
+        tabContainer.value?.setActiveTab("uniforms")
+    }
+    for (let outputType of compiledPlayground.outputTypes) {
+        if (outputType == "image") {
+            imageOutputDisplayed.value = true;
+        } else if (outputType == "printing") {
+            printOutputDisplayed.value = true;
+            tabContainer.value?.setActiveTab("output")
+        }
+    }
+    shaderRunning.value = true;
+    renderCanvas.value.onRun(compiledPlayground);
 }
 
 async function compileShader(userSource: string, entryPoint: string | null, compileTarget: typeof compileTargets[number]): Promise<Result<Shader>> {
@@ -468,7 +481,7 @@ function logError(message: string) {
 
                 <!-- Entry/Compile section -->
                 <div class="navbar-compile navbar-item">
-                    <Selector :options="compileTargets" modelValue="SPIRV" name="target" aria-label="target"
+                    <Selector :options="compileTargets" model-value="WGSL" name="target" aria-label="target"
                         ref="targetSelect" @change="updateProfileOptions"></Selector>
 
                     <select class="dropdown-select" name="profile" aria-label="profile" v-model="selectedProfile"
