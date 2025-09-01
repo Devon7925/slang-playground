@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ComputePipeline } from './compute';
 import { GraphicsPipeline, passThroughshaderCode } from './pass_through';
-import { NotReadyError, parsePrintfBuffer, sizeFromFormat, isWebGPUSupported } from './canvasUtils';
-import type { Bindings, CallCommand, CompiledPlayground, PlaygroundMessage, ResourceCommand } from 'slang-playground-shared';
-import { onMounted, ref, useTemplateRef, type Ref, inject } from 'vue';
+import { NotReadyError, parsePrintfBuffer, sizeFromFormat } from './canvasUtils';
+import type { Bindings, CallCommand, CompiledPlayground, ResourceCommand } from 'slang-playground-shared';
+import { onMounted, ref, useTemplateRef } from 'vue';
 
 let fileUri: string;
 let context: GPUCanvasContext;

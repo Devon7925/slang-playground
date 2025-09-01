@@ -1,4 +1,4 @@
-import { Bindings, CallCommand, CompiledPlayground, OutputType, ParsedCommand, ReflectionJSON, ReflectionParameter, ReflectionType, ResourceCommand, Result, ScalarType, Shader, SlangFormat, UniformController } from "slang-playground-shared";
+import { Bindings, CallCommand, CompiledPlayground, OutputType, ParsedCommand, ReflectionJSON, ReflectionParameter, ReflectionType, ResourceCommand, Result, ScalarType, Shader, UniformController } from "slang-playground-shared";
 import { ACCESS_MAP, webgpuFormatfromSlangFormat, getTextureFormat } from "./compilationUtils";
 
 export function compilePlayground(compilation: Shader, uri: string): Result<CompiledPlayground> {

@@ -2,9 +2,8 @@ import type { ComponentType, GlobalSession, MainModule, Module, Session } from '
 import playgroundSource from "./slang/playground.slang?raw";
 import renderingSource from "./slang/rendering.slang?raw";
 import printingSource from "./slang/printing.slang?raw";
-import type { HashedStringData, ScalarType, ReflectionParameter, ReflectionJSON, Bindings, Shader, Result, CompileRequest, CompileTarget } from 'slang-playground-shared'
+import type { HashedStringData, ReflectionJSON, Shader, Result, CompileRequest, CompileTarget } from 'slang-playground-shared'
 import type { SpirvTools } from '../media/spirv-tools.d.ts';
-import { ACCESS_MAP, getTextureFormat, webgpuFormatfromSlangFormat } from './compilationUtils.js';
 
 export function isWholeProgramTarget(compileTarget: CompileTarget) {
 	return compileTarget == "METAL" || compileTarget == "SPIRV" || compileTarget == "WGSL";

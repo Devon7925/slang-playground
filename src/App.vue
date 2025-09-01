@@ -13,13 +13,12 @@ import { computed, defineAsyncComponent, onBeforeMount, onMounted, ref, shallowR
 import { isWholeProgramTarget, compilePlayground } from 'slang-compilation-engine'
 import { demoList } from './demo-list'
 import { compressToBase64URL, decompressFromBase64URL, isWebGPUSupported } from './util'
-import type { ThreadGroupSize } from './slang-wasm'
 import { Splitpanes, Pane } from 'splitpanes'
 import 'splitpanes/dist/splitpanes.css'
 import ReflectionView from './components/ReflectionView.vue'
 import { useWindowSize } from '@vueuse/core'
 import { default as spirvTools } from "./spirv-tools.js";
-import { type Result, type Shader, type ReflectionJSON, type CallCommand, type HashedStringData, type ResourceCommand, type UniformController, isControllerRendered, type OutputType } from 'slang-playground-shared'
+import { type Result, type Shader, type UniformController, isControllerRendered } from 'slang-playground-shared'
 
 // MonacoEditor is a big component, so we load it asynchronously.
 const MonacoEditor = defineAsyncComponent(() => import('./components/MonacoEditor.vue'))
@@ -247,6 +246,7 @@ function updateEntryPointOptions() {
 async function doRun(forceCompile: boolean) {
     smallScreenEditorVisible.value = false;
     diagnosticsText.value = "";
+    currentDisplayMode.value = null;
 
     if (!renderCanvas.value) {
         throw new Error("WebGPU is not supported in this browser");
@@ -258,7 +258,6 @@ async function doRun(forceCompile: boolean) {
 
     if (compilationResult.succ == false) {
         // compileShader takes care of diagnostics already, so they aren't added here
-        toggleDisplayMode(null);
         return;
     }
 
@@ -270,10 +269,18 @@ async function doRun(forceCompile: boolean) {
     }
 
     if (!forceCompile && isRunnable) {
+        if(device.value == null) {
+            if (diagnosticsText.value == "")
+                diagnosticsText.value += `The shader compiled successfully, ` +
+                    `but it cannot run because your browser does not support WebGPU.\n` +
+                    `WebGPU is supported in Chrome, Edge, Firefox Nightly and Safari Technology Preview. ` +
+                    `On iOS, WebGPU support requires Safari 16.4 or later and must be enabled in settings. ` +
+                    `Please check your browser version and enable WebGPU if possible.`;
+            return;
+        }
         const compiledPlaygroundResult = compilePlayground(compilationResult.result, window.location.href + 'user.slang');
 
         if (compiledPlaygroundResult.succ == false) {
-            toggleDisplayMode(null);
             diagnosticsText.value += compiledPlaygroundResult.message;
             if (compiledPlaygroundResult.log) {
                 diagnosticsText.value += "\n" + compiledPlaygroundResult.log;
@@ -296,16 +303,10 @@ async function doRun(forceCompile: boolean) {
                 shaderType = "printMain";
             }
         }
-        toggleDisplayMode(shaderType);
-
+        
+        currentDisplayMode.value = shaderType;
         renderCanvas.value.onRun(compiledPlayground);
-    } else {
-        toggleDisplayMode(null);
     }
-}
-
-function toggleDisplayMode(displayMode: ShaderType) {
-    currentDisplayMode.value = displayMode;
 }
 
 async function compileShader(userSource: string, entryPoint: string | null, compileTarget: typeof compileTargets[number]): Promise<Result<Shader>> {
