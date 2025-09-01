@@ -219,7 +219,7 @@ function handleResize() {
             const height = parsedCommand.height_scale * currentWindowSize[1];
             const size = width * height;
 
-            const bindingInfo = compiledCode.shader.layout[resourceName];
+            const bindingInfo = compiledCode.layout[resourceName];
             if (!bindingInfo) {
                 throw new Error(`Resource ${resourceName} is not defined in the bindings.`);
             }
@@ -907,7 +907,7 @@ type ResourceMetadata = {
 function getResourceMetadata(compiledCode: CompiledPlayground): { [k: string]: ResourceMetadata } {
     const metadata = {};
 
-    for (const resourceName of Object.keys(compiledCode.shader.layout)) {
+    for (const resourceName of Object.keys(compiledCode.layout)) {
         metadata[resourceName] = {
             indirect: false,
             excludeBinding: [],
@@ -963,11 +963,11 @@ function onRun(runCompiledCode: CompiledPlayground) {
                 }
 
                 const pipelineBindings: Bindings = {};
-                for (const param in compiledCode.shader.layout) {
+                for (const param in compiledCode.layout) {
                     if (resourceMetadata[param]?.excludeBinding.includes(entryPoint)) {
                         continue;
                     }
-                    pipelineBindings[param] = compiledCode.shader.layout[param];
+                    pipelineBindings[param] = compiledCode.layout[param];
                 }
 
                 // create a pipeline resource 'signature' based on the bindings found in the program.
@@ -981,7 +981,7 @@ function onRun(runCompiledCode: CompiledPlayground) {
             }
 
             allocatedResources = await processResourceCommands(
-                compiledCode.shader.layout,
+                compiledCode.layout,
                 compiledCode.resourceCommands,
                 resourceMetadata,
                 compiledCode.uniformSize

@@ -7,7 +7,6 @@ export type CompileRequest = {
 	entrypoint: string | null,
 	sourceCode: string,
 	shaderPath: string,
-	noWebGPU: boolean,
 }
 
 export type EntrypointsRequest = {
@@ -93,7 +92,6 @@ export type EntrypointsResult = string[]
 
 export type Shader = {
 	code: string,
-	layout: Bindings,
 	hashedStrings: HashedStringData,
 	reflection: ReflectionJSON,
 	threadGroupSizes: { [key: string]: [number, number, number] },
@@ -133,6 +131,7 @@ export type CompiledPlayground = {
 	callCommands: CallCommand[],
 	uniformSize: number,
 	uniformComponents: UniformController[],
+	layout: Bindings,
 	outputTypes: OutputType[],
 }
 

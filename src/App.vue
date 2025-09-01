@@ -19,7 +19,7 @@ import 'splitpanes/dist/splitpanes.css'
 import ReflectionView from './components/ReflectionView.vue'
 import { useWindowSize } from '@vueuse/core'
 import { default as spirvTools } from "./spirv-tools.js";
-import { type Result, type Shader, type ReflectionJSON, type CallCommand, type HashedStringData, type ResourceCommand, type UniformController, isControllerRendered } from 'slang-playground-shared'
+import { type Result, type Shader, type ReflectionJSON, type CallCommand, type HashedStringData, type ResourceCommand, type UniformController, isControllerRendered, type OutputType } from 'slang-playground-shared'
 
 // MonacoEditor is a big component, so we load it asynchronously.
 const MonacoEditor = defineAsyncComponent(() => import('./components/MonacoEditor.vue'))
@@ -254,7 +254,7 @@ async function doRun(forceCompile: boolean) {
     const userSource = codeEditor.value!.getValue()
 
     // Todo: Readd working entrypoint selection
-    const compilationResult = await compileShader(userSource, null, "WGSL", forceCompile);
+    const compilationResult = await compileShader(userSource, null, "WGSL");
 
     if (compilationResult.succ == false) {
         // compileShader takes care of diagnostics already, so they aren't added here
@@ -262,13 +262,20 @@ async function doRun(forceCompile: boolean) {
         return;
     }
 
-    if(!forceCompile) {
+    let isRunnable = false;
+    for (let parameter of compilationResult.result.reflection.parameters) {
+        if (["outputTexture", "g_printedBuffer"].includes(parameter.name)) {
+            isRunnable = true;
+        }
+    }
+
+    if (!forceCompile && isRunnable) {
         const compiledPlaygroundResult = compilePlayground(compilationResult.result, window.location.href + 'user.slang');
 
         if (compiledPlaygroundResult.succ == false) {
             toggleDisplayMode(null);
             diagnosticsText.value += compiledPlaygroundResult.message;
-            if(compiledPlaygroundResult.log) {
+            if (compiledPlaygroundResult.log) {
                 diagnosticsText.value += "\n" + compiledPlaygroundResult.log;
             }
             return;
@@ -282,8 +289,8 @@ async function doRun(forceCompile: boolean) {
             tabContainer.value?.setActiveTab("uniforms")
         }
         let shaderType: ShaderType = null;
-        for(let outputType of compiledPlayground.outputTypes) {
-            if(outputType == "image") {
+        for (let outputType of compiledPlayground.outputTypes) {
+            if (outputType == "image") {
                 shaderType = "imageMain";
             } else if (outputType == "printing") {
                 shaderType = "printMain";
@@ -301,18 +308,17 @@ function toggleDisplayMode(displayMode: ShaderType) {
     currentDisplayMode.value = displayMode;
 }
 
-async function compileShader(userSource: string, entryPoint: string | null, compileTarget: typeof compileTargets[number], noWebGPU: boolean): Promise<Result<Shader>> {
+async function compileShader(userSource: string, entryPoint: string | null, compileTarget: typeof compileTargets[number]): Promise<Result<Shader>> {
     if (compiler == null) throw new Error("No compiler available");
     const compiledResult = await compiler.compile({
         target: compileTarget,
         entrypoint: entryPoint,
         sourceCode: userSource,
         shaderPath: '/user.slang',
-        noWebGPU,
     }, '/user.slang', [], spirvTools);
     if (compiledResult.succ == false) {
         diagnosticsText.value += compiledResult.message;
-        if(compiledResult.log) {
+        if (compiledResult.log) {
             diagnosticsText.value += "\n" + compiledResult.log;
         }
         codeGenArea.value?.setEditorValue('Compilation returned empty result.');
@@ -515,8 +521,8 @@ function logError(message: string) {
         </Teleport>
         <Teleport defer :to="isSmallScreen ? '#small-screen-display' : '.outputSpace'" v-if="device != null">
             <div id="renderOutput" v-show="currentDisplayMode == 'imageMain'">
-                <RenderCanvas :device="device" :show-fullscreen-toggle="true" @log-error="logError" @log-output="(log) => { printedText = log }"
-                    ref="renderCanvas"></RenderCanvas>
+                <RenderCanvas :device="device" :show-fullscreen-toggle="true" @log-error="logError"
+                    @log-output="(log) => { printedText = log }" ref="renderCanvas"></RenderCanvas>
             </div>
             <textarea readonly class="printSpace outputSpace"
                 v-show="currentDisplayMode == 'printMain'">{{ printedText }}</textarea>
@@ -533,7 +539,7 @@ function logError(message: string) {
 
                 <Tab name="uniforms" label="Uniforms"
                     v-if="currentDisplayMode == 'imageMain' && areAnyUniformsRendered">
-                    <UniformPanel :uniformComponents="uniformComponents"/>
+                    <UniformPanel :uniformComponents="uniformComponents" />
                 </Tab>
 
                 <Tab name="diagnostics" label="Diagnostics" v-if="diagnosticsText != ''">

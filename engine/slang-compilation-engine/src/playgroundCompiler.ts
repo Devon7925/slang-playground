@@ -1,7 +1,26 @@
-import { CallCommand, CompiledPlayground, OutputType, ParsedCommand, ReflectionJSON, ReflectionType, ResourceCommand, Result, ScalarType, Shader, SlangFormat, UniformController } from "slang-playground-shared";
+import { Bindings, CallCommand, CompiledPlayground, OutputType, ParsedCommand, ReflectionJSON, ReflectionParameter, ReflectionType, ResourceCommand, Result, ScalarType, Shader, SlangFormat, UniformController } from "slang-playground-shared";
 import { ACCESS_MAP, webgpuFormatfromSlangFormat, getTextureFormat } from "./compilationUtils";
 
 export function compilePlayground(compilation: Shader, uri: string): Result<CompiledPlayground> {
+    let layout: Bindings = getResourceBindings(compilation.reflection);
+
+    // remove incorrect uniform bindings
+    let has_uniform_been_binded = false;
+    for (let parameterReflection of compilation.reflection.parameters) {
+        if (parameterReflection.binding.kind != "uniform") continue;
+
+        has_uniform_been_binded = true;
+        delete layout[parameterReflection.name];
+    }
+
+    if (has_uniform_been_binded) {
+        layout["uniformInput"] = {
+            binding: 0,
+            visibility: GPUShaderStage.COMPUTE,
+            buffer: { type: "uniform" }
+        };
+    }
+
     let resourceCommandsResult = getResourceCommandsFromAttributes(compilation.reflection);
     if (resourceCommandsResult.succ == false) {
         return resourceCommandsResult;
@@ -32,9 +51,95 @@ export function compilePlayground(compilation: Shader, uri: string): Result<Comp
             callCommands: callCommandResult.result,
             uniformSize,
             uniformComponents,
+            layout,
             outputTypes,
         }
     }
+}
+
+function getBindingDescriptor(name: string, parameterReflection: ReflectionParameter): Partial<GPUBindGroupLayoutEntry> {
+    if (parameterReflection.type.kind == "resource") {
+        if (parameterReflection.type.baseShape == "texture2D") {
+            let slangAccess = parameterReflection.type.access;
+            if (slangAccess == undefined) {
+                return { texture: {} };
+            }
+            let access = ACCESS_MAP[slangAccess];
+
+            let scalarType: ScalarType;
+            let componentCount: 1 | 2 | 3 | 4;
+            if (parameterReflection.type.resultType.kind == "scalar") {
+                componentCount = 1;
+                scalarType = parameterReflection.type.resultType.scalarType;
+            } else if (parameterReflection.type.resultType.kind == "vector") {
+                componentCount = parameterReflection.type.resultType.elementCount;
+                if (parameterReflection.type.resultType.elementType.kind != "scalar") throw new Error(`Unhandled inner type for ${name}`)
+                scalarType = parameterReflection.type.resultType.elementType.scalarType;
+            } else {
+                throw new Error(`Unhandled inner type for ${name}`)
+            }
+
+            let format: GPUTextureFormat;
+            if (parameterReflection.format) {
+                format = webgpuFormatfromSlangFormat(parameterReflection.format);
+            } else {
+                try {
+                    format = getTextureFormat(componentCount, scalarType, access);
+                } catch (e) {
+                    if (e instanceof Error)
+                        throw new Error(`Could not get texture format for ${name}: ${e.message}`)
+                    else
+                        throw new Error(`Could not get texture format for ${name}`)
+                }
+            }
+
+            return { storageTexture: { access, format } };
+        } else if (parameterReflection.type.baseShape == "structuredBuffer") {
+            // WebGPU is strict about buffer binding types and requires exact matches:
+            // - StructuredBuffer<T> (read-only) requires { buffer: { type: 'read-only-storage' } }
+            // - RWStructuredBuffer<T> (read-write) requires { buffer: { type: 'storage' } }
+            // Mismatched binding types will cause WebGPU validation errors and webview crashes.
+            const isReadWrite = parameterReflection.type.access === "readWrite";
+            return { buffer: { type: isReadWrite ? 'storage' : 'read-only-storage' } };
+        } else {
+            let _: never = parameterReflection.type;
+            throw new Error(`Could not generate binding for ${name}`)
+            return {}
+        }
+    } else if (parameterReflection.type.kind == "samplerState") {
+        return { sampler: {} };
+    } else if (parameterReflection.binding.kind == "uniform") {
+        return { buffer: { type: 'uniform' } };
+    } else {
+        throw new Error(`Could not generate binding for ${name}`)
+        return {}
+    }
+}
+
+function getResourceBindings(reflectionJson: ReflectionJSON): Bindings {
+    let resourceDescriptors: Bindings = {};
+    for (let parameter of reflectionJson.parameters) {
+        const name = parameter.name;
+        let binding = {
+            binding: parameter.binding.kind == "descriptorTableSlot" ? parameter.binding.index : 0,
+            visibility: GPUShaderStage.COMPUTE,
+        };
+
+        let parameterReflection = reflectionJson.parameters.find((p) => p.name == name)
+
+        if (parameterReflection == undefined) {
+            throw new Error("Could not find parameter in reflection JSON")
+        }
+
+        const resourceInfo = getBindingDescriptor(name, parameterReflection);
+
+        // extend binding with resourceInfo
+        Object.assign(binding, resourceInfo);
+
+        resourceDescriptors[name] = binding;
+    }
+
+    return resourceDescriptors;
 }
 
 
