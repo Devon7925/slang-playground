@@ -79,9 +79,10 @@ watch(diagnosticsText, (newText, _) => {
 })
 const device = shallowRef<GPUDevice | null>(null);
 
-// Todo remove and replace with output type array
-type ShaderType = "imageMain" | "printMain" | null
-const currentDisplayMode = ref<ShaderType>("imageMain");
+const imageOutputDisplayed = ref<boolean>(false);
+const printOutputDisplayed = ref<boolean>(false);
+const shaderRunning = ref<boolean>(false);
+
 const uniformComponents = ref<UniformController[]>([])
 const areAnyUniformsRendered = computed(() => uniformComponents.value.filter(isControllerRendered).length > 0);
 
@@ -246,7 +247,9 @@ function updateEntryPointOptions() {
 async function doRun(forceCompile: boolean) {
     smallScreenEditorVisible.value = false;
     diagnosticsText.value = "";
-    currentDisplayMode.value = null;
+    imageOutputDisplayed.value = false;
+    printOutputDisplayed.value = false;
+    shaderRunning.value = false;
 
     if (!renderCanvas.value) {
         throw new Error("WebGPU is not supported in this browser");
@@ -295,16 +298,15 @@ async function doRun(forceCompile: boolean) {
         if (areAnyUniformsRendered.value) {
             tabContainer.value?.setActiveTab("uniforms")
         }
-        let shaderType: ShaderType = null;
         for (let outputType of compiledPlayground.outputTypes) {
             if (outputType == "image") {
-                shaderType = "imageMain";
+                imageOutputDisplayed.value = true;
             } else if (outputType == "printing") {
-                shaderType = "printMain";
+                printOutputDisplayed.value = true;
+                tabContainer.value?.setActiveTab("output")
             }
         }
-        
-        currentDisplayMode.value = shaderType;
+        shaderRunning.value = true;
         renderCanvas.value.onRun(compiledPlayground);
     }
 }
@@ -419,7 +421,7 @@ function logError(message: string) {
             </Pane>
             <Pane class="rightContainer">
                 <Splitpanes horizontal class="resultSpace">
-                    <Pane class="outputSpace" size="69" v-if="device != null" v-show="currentDisplayMode != null">
+                    <Pane id="big-screen-display" size="69" v-if="device != null" v-show="imageOutputDisplayed">
                     </Pane>
                     <Pane class="codeGenSpace">
                     </Pane>
@@ -429,7 +431,7 @@ function logError(message: string) {
         <div id="small-screen-container" v-show="isSmallScreen">
             <div id="small-screen-navbar"></div>
             <Splitpanes horizontal class="resultSpace slang-theme" v-show="!smallScreenEditorVisible">
-                <Pane id="small-screen-display" size="69" v-if="device != null" v-show="currentDisplayMode != null">
+                <Pane id="small-screen-display" size="69" v-if="device != null" v-show="imageOutputDisplayed">
                 </Pane>
                 <Pane id="small-screen-code-gen"></Pane>
             </Splitpanes>
@@ -520,13 +522,11 @@ function logError(message: string) {
                 </div>
             </div>
         </Teleport>
-        <Teleport defer :to="isSmallScreen ? '#small-screen-display' : '.outputSpace'" v-if="device != null">
-            <div id="renderOutput" v-show="currentDisplayMode == 'imageMain'">
+        <Teleport defer :to="isSmallScreen ? '#small-screen-display' : '#big-screen-display'" v-if="device != null">
+            <div id="renderOutput" v-show="imageOutputDisplayed">
                 <RenderCanvas :device="device" :show-fullscreen-toggle="true" @log-error="logError"
                     @log-output="(log) => { printedText = log }" ref="renderCanvas"></RenderCanvas>
             </div>
-            <textarea readonly class="printSpace outputSpace"
-                v-show="currentDisplayMode == 'printMain'">{{ printedText }}</textarea>
         </Teleport>
         <Teleport v-if="pageLoaded" defer :to="isSmallScreen ? '#small-screen-code-gen' : '.codeGenSpace'">
             <TabContainer ref="tabContainer">
@@ -539,12 +539,16 @@ function logError(message: string) {
                 </Tab>
 
                 <Tab name="uniforms" label="Uniforms"
-                    v-if="currentDisplayMode == 'imageMain' && areAnyUniformsRendered">
+                    v-if="shaderRunning && areAnyUniformsRendered">
                     <UniformPanel :uniformComponents="uniformComponents" />
                 </Tab>
 
                 <Tab name="diagnostics" label="Diagnostics" v-if="diagnosticsText != ''">
                     <textarea readonly class="diagnosticSpace outputSpace">{{ diagnosticsText }}</textarea>
+                </Tab>
+
+                <Tab name="output" label="Output" v-if="printOutputDisplayed">
+                    <textarea readonly class="printSpace outputSpace">{{ printedText }}</textarea>
                 </Tab>
             </TabContainer>
         </Teleport>
@@ -587,7 +591,7 @@ function logError(message: string) {
 }
 
 .printSpace {
-    margin-top: 10px;
+    padding: 5px;
 }
 
 .diagnosticSpace {
