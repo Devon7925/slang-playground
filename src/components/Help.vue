@@ -32,22 +32,25 @@ defineExpose({
       </p>
       <h4>Compiling Shaders (the "Compile" button)</h4>
       <p>
-        You can compile shaders to many targets supported by Slang here, including SPIR-V, HLSL, GLSL, Metal, and
+        You can compile shaders to many targets supported by Slang here, including SPIR-V, HLSL, GLSL, Metal, CUDA, and
         WGSL.
         Generating DXIL requires DXC, which doesn't run in the browser so it's not supported here.
       </p>
       <h4>Run Shaders (the "Run" button)</h4>
       <p>
         In addition to compiling shaders, this playground can also run simple shaders via WebGPU.
-        The playground supports running two types of shaders:
+        The playground supports running compute shaders that produce an image, text output, or both. All runnable shaders must be compute shaders marked with the <code>[shader("compute")]</code> attribute.
       </p>
-      <ul>
-        <li><b>Image Compute Shader</b>: This is a compute shader that returns a pixel value at a given image
-          coordinate, similar to ShaderToys.
-          An image compute shader must define a imageMain function, see the "Circle" demo for an example.</li>
-        <li><b>Print Shader</b>: This is a shader that prints text to the text output window.
-          A print shader must use `import printing;`, see the "Simple Print" demo for an example.</li>
-      </ul>
+      <h4>Print Shader</h4>
+      To create a shader that prints text, you must <code>import printing;</code>. This module provides a <code>printf</code> function. The output will be displayed in the "Output" tab in the bottom panel. See the "Simple Print" demo for an example.
+      <p>The <code>printing</code> module provides the following function:</p>
+      <h4 class="doc-header"><code>void printf&lteach T&gt(String format, expand each T values) where T : IPrintf</code></h4>
+      <p>Prints the values formatted according to the format.</p>
+      <h4>Rendering Shader</h4>
+      To create a shader that produces an image, you must <code>import rendering;</code>. This module provides an <code>outputTexture</code> and a <code>drawPixel</code> function. The output image will be displayed in the top right panel. See the "Circle" demo for an example.
+      <p>The <code>rendering</code> module provides the following function:</p>
+      <h4 class="doc-header"><code>void drawPixel(uint2 location, IFunc&lt;float4, int2&gt; renderFunction)</code></h4>
+      <p>Calls the <code>renderFunction</code> to get a color for a given pixel and stores it in the output texture.</p>
       <h4>Shader Commands</h4>
       <p>WebGPU shaders in browser can use certain commands to specify how they will run. Requires <code>import playground;</code>.</p>
         <h4 class="doc-header"><code>[playground::ZEROS(512)]</code></h4>
@@ -89,11 +92,7 @@ defineExpose({
         <h4 class="doc-header"><code>[playground::CALL_INDIRECT("BUFFER-NAME", 0)]</code></h4>
         Dispatch a compute pass with an indirect command buffer and an offset in bytes.
         <h4 class="doc-header"><code>[playground::CALL::ONCE]</code></h4>
-        Only dispatch the compute pass once at the start of rendering.
-      <h4>Playground functions</h4>
-      <p>The playground shader also provides the following functions:</p>
-      <h4 class="doc-header"><code>void printf&lteach T&gt(String format, expand each T values) where T : IPrintf</code></h4>
-      Prints the values formatted according to the format. Only available in print shaders.
+        Only dispatch the compute pass once at the start of rendering. Should be used in addition to another CALL command.
     </div>
   </div>
 </template>

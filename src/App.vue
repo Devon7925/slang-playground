@@ -461,7 +461,7 @@ function logError(message: string) {
                 <!-- Run section -->
                 <div class="navbar-run navbar-item">
                     <button :disabled="device == null"
-                        :title="device == null ? `Run shader feature is disabled because the current browser does not support WebGPU.` : `(F5) Compile and run the shader that provides either 'printMain' or 'imageMain'.);`"
+                        :title="device == null ? `Run shader feature is disabled because the current browser does not support WebGPU.` : `(F5) Compile and run the shader that uses either printing or rendering.);`"
                         @click="doRun(false)">&#9658;
                         Run</button>
                 </div>
