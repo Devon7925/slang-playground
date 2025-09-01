@@ -8,10 +8,9 @@ import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
 import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
 import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
 import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
-import { PLAYGROUND_SOURCE } from 'slang-compilation-engine';
+import { PLAYGROUND_SOURCE_FILES } from 'slang-compilation-engine';
 
 export const userCodeURI = "file:///user.slang";
-const playgroundCodeURI = "file:///playground.slang";
 let languageRegistered = false;
 export function initMonaco() {
     self.MonacoEnvironment = {
@@ -860,7 +859,9 @@ export function initLanguageServer() {
         throw new Error("Slang is undefined!");
     }
     slangd.didOpenTextDocument(userCodeURI, "");
-    slangd.didOpenTextDocument(playgroundCodeURI, PLAYGROUND_SOURCE);
+    for (const [filename, content] of Object.entries(PLAYGROUND_SOURCE_FILES)) {
+        slangd.didOpenTextDocument(`file:///${filename}.slang`, content);
+    }
 }
 
 export function translateSeverity(severity: number) {

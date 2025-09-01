@@ -46,7 +46,7 @@ defineExpose({
           coordinate, similar to ShaderToys.
           An image compute shader must define a imageMain function, see the "Circle" demo for an example.</li>
         <li><b>Print Shader</b>: This is a shader that prints text to the text output window.
-          A print shader must define a printMain function, see the "Simple Print" demo for an example.</li>
+          A print shader must use `import printing;`, see the "Simple Print" demo for an example.</li>
       </ul>
       <h4>Shader Commands</h4>
       <p>WebGPU shaders in browser can use certain commands to specify how they will run. Requires <code>import playground;</code>.</p>

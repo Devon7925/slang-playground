@@ -1,6 +1,7 @@
 // This example demonstrates how to use properties in Slang.
 
 import playground;
+import printing;
 
 public struct MyPoint
 {
@@ -20,6 +21,10 @@ public struct MyPoint
     }
 }
 
+[shader("compute")]
+[numthreads(1, 1, 1)]
+[playground::CALL(1, 1, 1)]
+[playground::CALL::ONCE]
 public void printMain()
 {
     MyPoint p;

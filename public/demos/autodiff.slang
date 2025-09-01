@@ -5,6 +5,7 @@
 // https://shader-slang.com/slang/user-guide/autodiff.html
 
 import playground;
+import printing;
 
 // Define a simple function and mark it as differentiable.
 [Differentiable]
@@ -13,6 +14,10 @@ float sumOfSquares(float x, float y)
     return x * x + y * y;
 }
 
+[shader("compute")]
+[numthreads(1, 1, 1)]
+[playground::CALL(1, 1, 1)]
+[playground::CALL::ONCE]
 void printMain()
 {
     let result = sumOfSquares(2.0, 3.0);

@@ -4,6 +4,7 @@
 // expand the variadic arguments, while Swift uses the `repeat` keyword.
 
 import playground;
+import printing;
 
 // Define an interface that requires a conforming type to provide a print function.
 //
@@ -21,6 +22,10 @@ void printAllWithTypePrefix<each T>(expand each T args) where T : IMyPrintable
 
 // Main function to test the variadic `printAllWithTypePrefix` function.
 //
+[shader("compute")]
+[numthreads(1, 1, 1)]
+[playground::CALL(1, 1, 1)]
+[playground::CALL::ONCE]
 void printMain()
 {
     printAllWithTypePrefix(1, 2, 3.0, 4.0);

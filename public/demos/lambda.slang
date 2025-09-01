@@ -4,6 +4,7 @@
 // https://github.com/shader-slang/spec/blob/main/proposals/025-lambda-1.md
 
 import playground;
+import printing;
 
 public struct MyData
 {
@@ -17,6 +18,10 @@ public struct MyData
     }
 }
 
+[shader("compute")]
+[numthreads(1, 1, 1)]
+[playground::CALL(1, 1, 1)]
+[playground::CALL::ONCE]
 public void printMain()
 {
     let p = MyData({ 1, 2, 3, 4 });

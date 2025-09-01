@@ -74,7 +74,7 @@ export class GraphicsPipeline {
         this.pipelineLayout = layout;
     }
 
-    createPipeline(shaderModule: GPUShaderModule, inputTexture: GPUTexture) {
+    createPipeline(shaderModule: GPUShaderModule) {
         this.createGraphicsPipelineLayout();
 
         if (this.pipelineLayout == undefined) throw new Error("Pipeline layout not available");
@@ -97,8 +97,6 @@ export class GraphicsPipeline {
         this.pipeline = pipeline;
 
         this.sampler = this.device.createSampler();
-        this.inputTexture = inputTexture;
-        this.createBindGroup();
     }
 
     createBindGroup() {

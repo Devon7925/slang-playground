@@ -1,4 +1,5 @@
 import playground;
+import rendering;
 
 [playground::RAND(131072)]
 RWStructuredBuffer<float> randBuffer;
@@ -166,44 +167,49 @@ float4 fineRasterize(float2 uv)
 }
 
 
-float4 imageMain(uint2 dispatchThreadID, int2 screenSize)
+[shader("compute")]
+[numthreads(16, 16, 1)]
+[playground::CALL::SIZE_OF("outputTexture")]
+void imageMain(uint2 dispatchThreadID: SV_DispatchThreadID)
 {
-    uint globalID = dispatchThreadID.x + dispatchThreadID.y * screenSize.x;
+    drawPixel(dispatchThreadID, (int2 screenSize) => {
+        uint globalID = dispatchThreadID.x + dispatchThreadID.y * screenSize.x;
 
-    float2 uv = float2(dispatchThreadID) / float2(screenSize);
+        float2 uv = float2(dispatchThreadID) / float2(screenSize);
 
-    uint2 tileID = uint2(dispatchThreadID.x / WG_X, dispatchThreadID.y / WG_Y);
+        uint2 tileID = uint2(dispatchThreadID.x / WG_X, dispatchThreadID.y / WG_Y);
 
-    float2 tileLow = float2(tileID) * float2(WG_X, WG_Y) / float2(screenSize);
-    float2 tileHigh = tileLow + (float2(WG_X, WG_Y) / float2(screenSize));
+        float2 tileLow = float2(tileID) * float2(WG_X, WG_Y) / float2(screenSize);
+        float2 tileHigh = tileLow + (float2(WG_X, WG_Y) / float2(screenSize));
 
-    BBox tileBounds = BBox(tileLow, tileHigh);
+        BBox tileBounds = BBox(tileLow, tileHigh);
 
-    // Short-list blobs that overlap with the current pixel
-    if (dispatchThreadID.x % WG_X == 0 && dispatchThreadID.y % WG_Y == 0)
-        blobCount = 0;
+        // Short-list blobs that overlap with the current pixel
+        if (dispatchThreadID.x % WG_X == 0 && dispatchThreadID.y % WG_Y == 0)
+            blobCount = 0;
 
-    AllMemoryBarrierWithGroupSync();
+        AllMemoryBarrierWithGroupSync();
 
-    uint2 localID = dispatchThreadID % uint2(WG_X, WG_Y);
-    uint localIdx = localID.x + localID.y * WG_X;
+        uint2 localID = dispatchThreadID % uint2(WG_X, WG_Y);
+        uint localIdx = localID.x + localID.y * WG_X;
 
-    coarseRasterize(tileBounds, localIdx);
-    AllMemoryBarrierWithGroupSync();
+        coarseRasterize(tileBounds, localIdx);
+        AllMemoryBarrierWithGroupSync();
 
-    var maxN = blobCount.load();
-    for (uint i = localIdx; i < GAUSSIANS_PER_BLOCK; i += (WG_X * WG_Y))
-    {
-        if (i >= maxN)
-            blobs[i] = uint::maxValue;
-    }
-    AllMemoryBarrierWithGroupSync();
+        var maxN = blobCount.load();
+        for (uint i = localIdx; i < GAUSSIANS_PER_BLOCK; i += (WG_X * WG_Y))
+        {
+            if (i >= maxN)
+                blobs[i] = uint::maxValue;
+        }
+        AllMemoryBarrierWithGroupSync();
 
-    bitonicSort(localIdx);
-    AllMemoryBarrierWithGroupSync();
+        bitonicSort(localIdx);
+        AllMemoryBarrierWithGroupSync();
 
-    float4 color = fineRasterize(uv);
+        float4 color = fineRasterize(uv);
 
-    // Blend with background
-    return float4(color.rgb * (1.0 - color.a) + color.a, 1.0);
+        // Blend with background
+        return float4(color.rgb * (1.0 - color.a) + color.a, 1.0);
+    });
 }

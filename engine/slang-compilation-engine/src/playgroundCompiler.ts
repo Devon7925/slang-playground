@@ -1,7 +1,7 @@
-import { CallCommand, CompiledPlayground, ParsedCommand, ReflectionJSON, ReflectionType, ResourceCommand, Result, ScalarType, Shader, SlangFormat, UniformController } from "slang-playground-shared";
+import { CallCommand, CompiledPlayground, OutputType, ParsedCommand, ReflectionJSON, ReflectionType, ResourceCommand, Result, ScalarType, Shader, SlangFormat, UniformController } from "slang-playground-shared";
 import { ACCESS_MAP, webgpuFormatfromSlangFormat, getTextureFormat } from "./compilationUtils";
 
-export function compilePlayground(compilation: Shader, uri: string, entrypoint: string): Result<CompiledPlayground> {
+export function compilePlayground(compilation: Shader, uri: string): Result<CompiledPlayground> {
     let resourceCommandsResult = getResourceCommandsFromAttributes(compilation.reflection);
     if (resourceCommandsResult.succ == false) {
         return resourceCommandsResult;
@@ -14,16 +14,25 @@ export function compilePlayground(compilation: Shader, uri: string, entrypoint: 
         return callCommandResult;
     }
 
+    let outputTypes: OutputType[] = [];
+    for(let resourceCommand of resourceCommandsResult.result) {
+        if (resourceCommand.resourceName == "outputTexture") {
+            outputTypes.push("image")
+        } else if (resourceCommand.resourceName == "g_printedBuffer") {
+            outputTypes.push("printing")
+        }
+    }
+
     return {
         succ: true,
         result: {
             uri,
             shader: compilation,
-            mainEntryPoint: entrypoint as any,
             resourceCommands: resourceCommandsResult.result,
             callCommands: callCommandResult.result,
             uniformSize,
-            uniformComponents
+            uniformComponents,
+            outputTypes,
         }
     }
 }

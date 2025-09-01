@@ -2,6 +2,7 @@
 
 // Import the playground module so we can use the `printf` utility function.
 import playground;
+import printing;
 
 // Define a type that conforms to the `IMyHashable` interface.
 struct MyPoint
@@ -33,6 +34,10 @@ MyPoint operator+(MyPoint a, MyPoint b)
     return MyPoint(a.x + b.x, a.y + b.y);
 }
 
+[shader("compute")]
+[numthreads(1, 1, 1)]
+[playground::CALL(1, 1, 1)]
+[playground::CALL::ONCE]
 void printMain()
 {
     // `let` keyword is used to declare an immutable variable.

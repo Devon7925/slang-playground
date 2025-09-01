@@ -1,14 +1,11 @@
 import playground;
+import rendering;
 
 static const int MAX_BRUSH_SIZE = 64;
 static const uint THREAD_COUNT = 8;
 
 [playground::BLACK_SCREEN(1.0, 1.0)]
-RWTexture2D<float> tex_red;
-[playground::BLACK_SCREEN(1.0, 1.0)]
-RWTexture2D<float> tex_green;
-[playground::BLACK_SCREEN(1.0, 1.0)]
-RWTexture2D<float> tex_blue;
+RWTexture2D<float> tex;
 
 [playground::ZEROS(8)]
 RWStructuredBuffer<uint> indirectBuffer;
@@ -43,21 +40,11 @@ void draw(uint2 dispatchThreadId: SV_DispatchThreadID)
     if (length(offset) > brush_size / 2)
         return;
 
-    var mouse_pos = uint2(mousePosition.xy + offset);
-    tex_red[mouse_pos] = color.r;
-    tex_green[mouse_pos] = color.g;
-    tex_blue[mouse_pos] = color.b;
-}
+    uint2 screenSize;
+    tex.GetDimensions(screenSize.x, screenSize.y);
 
-float4 imageMain(uint2 dispatchThreadID, int2 screenSize)
-{
-    uint imageW;
-    uint imageH;
-    tex_red.GetDimensions(imageW, imageH);
-
-    uint2 scaled = (uint2)floor(float2(dispatchThreadID.xy));
-    uint2 flipped = uint2(scaled.x, imageH - scaled.y);
-
-    float4 imageColor = float4(tex_red[flipped], tex_green[flipped], tex_blue[flipped], 1.0);
-    return imageColor;
+    var mouse_pos = int2(0, screenSize.y) + int2(1, -1) * int2(mousePosition.xy + offset);
+    drawPixel(mouse_pos, (int2 screenSize) => {
+        return float4(color, 1.0);
+    });
 }

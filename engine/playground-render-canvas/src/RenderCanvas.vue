@@ -2,12 +2,11 @@
 import { ComputePipeline } from './compute';
 import { GraphicsPipeline, passThroughshaderCode } from './pass_through';
 import { NotReadyError, parsePrintfBuffer, sizeFromFormat, isWebGPUSupported } from './canvasUtils';
-import type { Bindings, CallCommand, CompiledPlayground, PlaygroundMessage, ResourceCommand, RunnableShaderType, ShaderType } from 'slang-playground-shared';
+import type { Bindings, CallCommand, CompiledPlayground, PlaygroundMessage, ResourceCommand } from 'slang-playground-shared';
 import { onMounted, ref, useTemplateRef, type Ref, inject } from 'vue';
 
 let fileUri: string;
 let context: GPUCanvasContext;
-let shaderType: RunnableShaderType;
 let computePipelines: ComputePipeline[] = [];
 let passThroughPipeline: GraphicsPipeline;
 
@@ -19,8 +18,8 @@ let abortRender = false;
 const pauseRender = ref(false);
 let onRenderAborted: (() => void) | null = null;
 
+// This should probably be generated via reflection
 const printfBufferElementSize = 12;
-const printfBufferSize = printfBufferElementSize * 2048; // 12 bytes per printf struct
 
 let currentWindowSize = [300, 150];
 
@@ -98,7 +97,7 @@ function setFrame(targetFrame: number) {
     pauseRender.value = true;
     // Set internal counter so execFrame's increment brings us to t
     frameID.value = t - 1;
-    execFrame(performance.now(), shaderType, compiledCode, t === 0)
+    execFrame(performance.now(), compiledCode, t === 0)
         .catch(err => {
             if (err instanceof Error) emit('logError', `Error rendering frame ${t}: ${err.message}`);
             else emit('logError', `Error rendering frame ${t}: ${err}`);
@@ -137,7 +136,7 @@ function resizeCanvas(entries: ResizeObserverEntry[]) {
     return false;
 }
 
-function withRenderLock(setupFn: { (): Promise<void>; }, renderFn: { (timeMS: number, currentDisplayMode: ShaderType): Promise<boolean>; }) {
+function withRenderLock(setupFn: { (): Promise<void>; }, renderFn: { (timeMS: number): Promise<boolean>; }) {
     // Overwrite the onRenderAborted function to the new one.
     // This also makes sure that a single function is called when the render thread is aborted.
     //
@@ -158,7 +157,7 @@ function withRenderLock(setupFn: { (): Promise<void>; }, renderFn: { (timeMS: nu
             const newRenderLoop = async (timeMS: number) => {
                 let nextFrame = false;
                 try {
-                    const keepRendering = await renderFn(timeMS, shaderType);
+                    const keepRendering = await renderFn(timeMS);
                     nextFrame = keepRendering && !abortRender;
                     if (nextFrame)
                         requestAnimationFrame(newRenderLoop);
@@ -338,9 +337,7 @@ function resetMouse() {
 let timeAggregate = 0;
 let frameCount = 0;
 
-async function execFrame(timeMS: number, currentDisplayMode: ShaderType, playgroundData: CompiledPlayground, firstFrame: boolean) {
-    if (currentDisplayMode == null)
-        return false;
+async function execFrame(timeMS: number, playgroundData: CompiledPlayground, firstFrame: boolean) {
     if (currentWindowSize[0] < 2 || currentWindowSize[1] < 2)
         return false;
 
@@ -403,15 +400,12 @@ async function execFrame(timeMS: number, currentDisplayMode: ShaderType, playgro
     // Encode commands to do the computation
     const encoder = device.createCommandEncoder({ label: 'compute builtin encoder' });
 
-    let printfBufferRead = allocatedResources.get("printfBufferRead");
-    if (!(printfBufferRead instanceof GPUBuffer)) {
-        throw new Error("printfBufferRead is not a buffer");
-    }
-    let g_printedBuffer = allocatedResources.get("g_printedBuffer")
-    if (!(g_printedBuffer instanceof GPUBuffer)) {
-        throw new Error("g_printedBuffer is not a buffer");
-    }
-    if (currentDisplayMode == "printMain") {
+    let g_printedBuffer = allocatedResources.get("g_printedBuffer");
+    if (g_printedBuffer instanceof GPUBuffer) {
+        let printfBufferRead = allocatedResources.get("printfBufferRead");
+        if (!(printfBufferRead instanceof GPUBuffer)) {
+            throw new Error("printfBufferRead is not a buffer");
+        }
         encoder.clearBuffer(printfBufferRead);
         encoder.clearBuffer(g_printedBuffer);
     }
@@ -512,7 +506,9 @@ async function execFrame(timeMS: number, currentDisplayMode: ShaderType, playgro
         pauseRender.value = true;
     }
 
-    if (currentDisplayMode == "imageMain") {
+
+    let outputTexture = allocatedResources.get("outputTexture");
+    if (outputTexture instanceof GPUTexture) {
         const renderPassDescriptor = passThroughPipeline.createRenderPassDesc(context.getCurrentTexture().createView());
         const renderPass = encoder.beginRenderPass(renderPassDescriptor);
 
@@ -526,7 +522,11 @@ async function execFrame(timeMS: number, currentDisplayMode: ShaderType, playgro
     }
 
     // copy output buffer back in print mode
-    if (currentDisplayMode == "printMain") {
+    if (g_printedBuffer instanceof GPUBuffer) {
+        let printfBufferRead = allocatedResources.get("printfBufferRead");
+        if (!(printfBufferRead instanceof GPUBuffer)) {
+            throw new Error("printfBufferRead is not a buffer");
+        }
         encoder.copyBufferToBuffer(
             g_printedBuffer, 0, printfBufferRead, 0, g_printedBuffer.size);
     }
@@ -537,7 +537,11 @@ async function execFrame(timeMS: number, currentDisplayMode: ShaderType, playgro
 
     await device.queue.onSubmittedWorkDone();
 
-    if (currentDisplayMode == "printMain") {
+    if (g_printedBuffer instanceof GPUBuffer) {
+        let printfBufferRead = allocatedResources.get("printfBufferRead");
+        if (!(printfBufferRead instanceof GPUBuffer)) {
+            throw new Error("printfBufferRead is not a buffer");
+        }
         await printfBufferRead.mapAsync(GPUMapMode.READ);
 
         const formatPrint = parsePrintfBuffer(
@@ -603,9 +607,18 @@ async function processResourceCommands(
                 throw new Error(`Resource ${resourceName} is an invalid type for ZEROS`);
             }
 
+            let usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST;
+
+            if (resourceMetadata[resourceName]?.indirect)
+                usage |= GPUBufferUsage.INDIRECT;
+
+            // Hack fix to get printing to work
+            if (resourceName == "g_printedBuffer")
+                usage |= GPUBufferUsage.COPY_SRC;
+
             const buffer = device.createBuffer({
                 size: parsedCommand.count * elementSize,
-                usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | (resourceMetadata[resourceName]?.indirect ? GPUBufferUsage.INDIRECT : 0),
+                usage,
             });
 
             safeSet(allocatedResources, resourceName, buffer);
@@ -875,15 +888,13 @@ async function processResourceCommands(
     //
     // Some special-case allocations
     //
-    safeSet(allocatedResources, "g_printedBuffer", device.createBuffer({
-        size: printfBufferSize,
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST,
-    }));
-
-    safeSet(allocatedResources, "printfBufferRead", device.createBuffer({
-        size: printfBufferSize,
-        usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
-    }));
+    let g_printedBuffer = allocatedResources.get("g_printedBuffer");
+    if (g_printedBuffer instanceof GPUBuffer) {
+        safeSet(allocatedResources, "printfBufferRead", device.createBuffer({
+            size: g_printedBuffer.size,
+            usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+        }));
+    }
 
     return allocatedResources;
 }
@@ -924,7 +935,6 @@ function onRun(runCompiledCode: CompiledPlayground) {
     frameCount = 0;
     pauseRender.value = false;
 
-    shaderType = runCompiledCode.mainEntryPoint;
     fileUri = runCompiledCode.uri;
 
     resetMouse();
@@ -980,19 +990,14 @@ function onRun(runCompiledCode: CompiledPlayground) {
             if (!passThroughPipeline) {
                 passThroughPipeline = new GraphicsPipeline(device);
                 const shaderModule = device.createShaderModule({ code: passThroughshaderCode });
-                const inputTexture = allocatedResources.get("outputTexture");
-                if (!(inputTexture instanceof GPUTexture)) {
-                    throw new Error("inputTexture is not a texture");
-                }
-                passThroughPipeline.createPipeline(shaderModule, inputTexture);
+                passThroughPipeline.createPipeline(shaderModule);
             }
 
             let outputTexture = allocatedResources.get("outputTexture");
-            if (!(outputTexture instanceof GPUTexture)) {
-                throw new Error("");
+            if (outputTexture instanceof GPUTexture) {
+                passThroughPipeline.inputTexture = outputTexture;
+                passThroughPipeline.createBindGroup();
             }
-            passThroughPipeline.inputTexture = outputTexture;
-            passThroughPipeline.createBindGroup();
 
             // Create bind groups for the pipelines
             for (const pipeline of computePipelines)
@@ -1002,11 +1007,7 @@ function onRun(runCompiledCode: CompiledPlayground) {
         async (timeMS: number) => {
             if (abortRender) return false;
             if (pauseRender.value) return true;
-
-            if (shaderType === null) {
-                // handle this case
-            }
-            const keepRendering = await execFrame(timeMS, shaderType, compiledCode, firstFrame);
+            const keepRendering = await execFrame(timeMS, compiledCode, firstFrame);
             firstFrame = false;
             return keepRendering;
         });

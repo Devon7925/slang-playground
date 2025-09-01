@@ -20,7 +20,7 @@ The playground supports running two types of shaders:
     coordinate, similar to ShaderToys.
     An image compute shader must define a `float4 imageMain(uint2 dispatchThreadID, int2 screenSize)` function.
 * **Print Shader**: This is a shader that prints text to the output pane.
-    A print shader must define a `void printMain()` function.
+    A print shader must `import printing;`.
 
 ## Shader Commands
 

@@ -1,5 +1,4 @@
-import { PLAYGROUND_SOURCE, SlangCompiler } from 'slang-compilation-engine';
-import { RUNNABLE_ENTRY_POINT_NAMES } from "slang-playground-shared";
+import { PLAYGROUND_SOURCE_FILES, SlangCompiler } from 'slang-compilation-engine';
 import { fetchWithProgress } from './util.js';
 import type { LanguageServer, MainModule } from "./slang-wasm.js";
 import type { PublicApi as JJsonPublicApi } from "jjsontree.js/src/ts/api.js"
@@ -14,18 +13,6 @@ export let compiler: SlangCompiler | null = null;
 export let slangd: LanguageServer | null = null;
 
 export let moduleLoadingMessage = "";
-
-export function checkShaderType(userSource: string) {
-    // we did a pre-filter on the user input source code.
-    let shaderTypes = RUNNABLE_ENTRY_POINT_NAMES.filter((entryPoint) => userSource.includes(entryPoint));
-
-    // Only one of the main function should be defined.
-    // In this case, we will know that the shader is not runnable, so we can only compile it.
-    if (shaderTypes.length !== 1)
-        return null;
-
-    return shaderTypes[0];
-}
 
 // Event when loading the WebAssembly module
 type ReplaceReturnType<T extends (...a: any) => any, TNewReturn> = (...a: Parameters<T>) => TNewReturn;
@@ -67,7 +54,9 @@ createModule(moduleConfig).then((module) => {
     try {
         {
             let FS = module.FS;
-            FS.writeFile("/playground.slang", PLAYGROUND_SOURCE);
+            for (const [filename, content] of Object.entries(PLAYGROUND_SOURCE_FILES)) {
+                FS.writeFile(`/${filename}.slang`, content);
+            }
             FS.writeFile("/user.slang", "");
         }
         compiler = new SlangCompiler(module);

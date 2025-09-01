@@ -1,4 +1,5 @@
 import playground;
+import rendering;
 
 [playground::TIME]
 uniform float time;
@@ -19,11 +20,16 @@ void fillBuffer(uint2 dispatchThreadId : SV_DispatchThreadID)
     buf[idx] = sin(float(idx) / 1000.0 + 10 * time);
 }
 
-float4 imageMain(uint2 dispatchThreadID, int2 screenSize)
+[shader("compute")]
+[numthreads(16, 16, 1)]
+[playground::CALL::SIZE_OF("outputTexture")]
+void imageMain(uint2 dispatchThreadID: SV_DispatchThreadID)
 {
-    uint idx = dispatchThreadID.x + dispatchThreadID.y * screenSize.x;
+    drawPixel(dispatchThreadID, (int2 screenSize) => {
+        uint idx = dispatchThreadID.x + dispatchThreadID.y * screenSize.x;
 
-    float rand = buf[idx % 131072];
+        float rand = buf[idx % 131072];
 
-    return float4(rand, rand, rand, 1.0);
+        return float4(rand, rand, rand, 1.0);
+    });
 }

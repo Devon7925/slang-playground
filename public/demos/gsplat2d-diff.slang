@@ -23,6 +23,7 @@
  */
 
 import playground;
+import rendering;
 
 // ----- Constants and definitions --------
 
@@ -951,7 +952,10 @@ void updateBlobsMain(uint2 dispatchThreadID: SV_DispatchThreadID)
     blobsBuffer[globalID] -= update;
 }
 
-float4 imageMain(uint2 dispatchThreadID, uint2 screenSize)
+[shader("compute")]
+[numthreads(16, 16, 1)]
+[playground::CALL::SIZE_OF("outputTexture")]
+void imageMain(uint2 dispatchThreadID: SV_DispatchThreadID)
 {
-    return splatBlobs(dispatchThreadID, screenSize);
+    drawPixel(dispatchThreadID, (int2 screenSize) => splatBlobs(dispatchThreadID, screenSize));
 }

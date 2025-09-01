@@ -3,6 +3,7 @@
 
 // Import the playground module so we can use the `printf` utility function.
 import playground;
+import printing;
 
 // Define an interface that requires a conforming type to
 // provide a hash function.
@@ -64,6 +65,10 @@ extension<T:IMyHashable, int N> vector<T, N> : IMyHashable
     }
 }
 
+[shader("compute")]
+[numthreads(1, 1, 1)]
+[playground::CALL(1, 1, 1)]
+[playground::CALL::ONCE]
 void printMain()
 {
     // Construct a circle.
