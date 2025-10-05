@@ -87,7 +87,8 @@ export class ComputePipeline {
                     if (!(resource instanceof GPUTexture)) {
                         throw new Error("Invalid state");
                     }
-                    entries.push({ binding: bindInfo.binding, resource: resource.createView() });
+                    const viewDescriptor = bindInfo.storageTexture.viewDimension ? { dimension: bindInfo.storageTexture.viewDimension } : undefined;
+                    entries.push({ binding: bindInfo.binding, resource: resource.createView(viewDescriptor) });
                 }
                 else if (bindInfo.sampler) {
                     if (!(resource instanceof GPUSampler)) {
@@ -99,7 +100,8 @@ export class ComputePipeline {
                     if (!(resource instanceof GPUTexture)) {
                         throw new Error("Invalid state");
                     }
-                    entries.push({ binding: bindInfo.binding, resource: resource.createView() });
+                    const viewDescriptor = bindInfo.texture.viewDimension ? { dimension: bindInfo.texture.viewDimension } : undefined;
+                    entries.push({ binding: bindInfo.binding, resource: resource.createView(viewDescriptor) });
                 }
             }
         }

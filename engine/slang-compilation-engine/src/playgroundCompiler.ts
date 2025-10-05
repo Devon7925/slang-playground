@@ -59,10 +59,12 @@ export function compilePlayground(compilation: Shader, uri: string): Result<Comp
 
 function getBindingDescriptor(name: string, parameterReflection: ReflectionParameter): Partial<GPUBindGroupLayoutEntry> {
     if (parameterReflection.type.kind == "resource") {
-        if (parameterReflection.type.baseShape == "texture2D") {
+        if (parameterReflection.type.baseShape == "texture2D" || parameterReflection.type.baseShape == "texture3D") {
+            const is3D = parameterReflection.type.baseShape == "texture3D";
             let slangAccess = parameterReflection.type.access;
             if (slangAccess == undefined) {
-                return { texture: {} };
+                const textureLayout: GPUTextureBindingLayout = is3D ? { viewDimension: "3d" } : {};
+                return { texture: textureLayout };
             }
             let access = ACCESS_MAP[slangAccess];
 
@@ -93,7 +95,8 @@ function getBindingDescriptor(name: string, parameterReflection: ReflectionParam
                 }
             }
 
-            return { storageTexture: { access, format } };
+            const storageLayout: GPUStorageTextureBindingLayout = is3D ? { access, format, viewDimension: "3d" } : { access, format };
+            return { storageTexture: storageLayout };
         } else if (parameterReflection.type.baseShape == "structuredBuffer") {
             // WebGPU is strict about buffer binding types and requires exact matches:
             // - StructuredBuffer<T> (read-only) requires { buffer: { type: 'read-only-storage' } }
@@ -207,6 +210,19 @@ function getResourceCommandsFromAttributes(reflection: ReflectionJSON): Result<R
                     type: playground_attribute_name,
                     width: attribute.arguments[0] as number,
                     height: attribute.arguments[1] as number,
+                };
+            } else if (playground_attribute_name == "BLACK_3D") {
+                if (parameter.type.kind != "resource" || parameter.type.baseShape != "texture3D") {
+                    return {
+                        succ: false,
+                        message: `${playground_attribute_name} attribute cannot be applied to ${parameter.name}, it only supports 3D textures`,
+                    };
+                }
+                command = {
+                    type: playground_attribute_name,
+                    width: attribute.arguments[0] as number,
+                    height: attribute.arguments[1] as number,
+                    depth: attribute.arguments[2] as number,
                 };
             } else if (playground_attribute_name == "BLACK_SCREEN") {
                 if (parameter.type.kind != "resource" || parameter.type.baseShape != "texture2D") {

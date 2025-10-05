@@ -464,7 +464,7 @@ async function execFrame(timeMS: number, playgroundData: CompiledPlayground, fir
                 size = [resource.size / elementSize, 1, 1];
             }
             else if (resource instanceof GPUTexture) {
-                size = [resource.width, resource.height, 1];
+                size = [resource.width, resource.height, resource.depthOrArrayLayers ?? 1];
             }
             else {
                 pass.end();
@@ -668,6 +668,48 @@ async function processResourceCommands(
                 // Initialize the texture with zeros.
                 let zeros = new Uint8Array(Array(size * elementSize).fill(0));
                 device.queue.writeTexture({ texture }, zeros, { bytesPerRow: parsedCommand.width * elementSize }, { width: parsedCommand.width, height: parsedCommand.height });
+            }
+            catch (error) {
+                throw new Error(`Failed to create texture: ${error}`);
+            }
+        } else if (parsedCommand.type === "BLACK_3D") {
+            const size = parsedCommand.width * parsedCommand.height * parsedCommand.depth;
+            const bindingInfo = resourceBindings[resourceName];
+            if (!bindingInfo) {
+                throw new Error(`Resource ${resourceName} is not defined in the bindings.`);
+            }
+
+            const format = bindingInfo.storageTexture?.format;
+            if (format == undefined) {
+                throw new Error(`Could not find format of ${resourceName}`);
+            }
+            const elementSize = sizeFromFormat(format);
+
+            if (!bindingInfo.texture && !bindingInfo.storageTexture) {
+                throw new Error(`Resource ${resourceName} is an invalid type for BLACK_3D`);
+            }
+            try {
+                let usage = GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST;
+                if (bindingInfo.storageTexture) {
+                    usage |= GPUTextureUsage.STORAGE_BINDING;
+                }
+                const texture = device.createTexture({
+                    size: [parsedCommand.width, parsedCommand.height, parsedCommand.depth],
+                    dimension: "3d",
+                    format,
+                    usage: usage,
+                });
+
+                safeSet(allocatedResources, resourceName, texture);
+
+                const bytesPerRow = parsedCommand.width * elementSize;
+                let zeros = new Uint8Array(Array(size * elementSize).fill(0));
+                device.queue.writeTexture(
+                    { texture },
+                    zeros,
+                    { bytesPerRow, rowsPerImage: parsedCommand.height },
+                    { width: parsedCommand.width, height: parsedCommand.height, depthOrArrayLayers: parsedCommand.depth }
+                );
             }
             catch (error) {
                 throw new Error(`Failed to create texture: ${error}`);

@@ -57,6 +57,8 @@ defineExpose({
         Initialize a <code>float</code> buffer with zeros of the provided size.
         <h4 class="doc-header"><code>[playground::BLACK(512, 512)]</code></h4>
         Initialize a <code>float</code> texture with zeros of the provided size.
+        <h4 class="doc-header"><code>[playground::BLACK_3D(64, 64, 64)]</code></h4>
+        Initialize a <code>float</code> 3D texture with zeros of the provided size.
         <h4 class="doc-header"><code>[playground::BLACK_SCREEN(1.0, 1.0)]</code></h4>
         Initialize a <code>float</code> texture with zeros with a size proportional to the screen size.
         <h4 class="doc-header"><code>[playground::SAMPLER]</code></h4>

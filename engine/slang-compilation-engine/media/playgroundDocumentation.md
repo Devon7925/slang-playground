@@ -57,6 +57,10 @@ Initialize a `float` buffer with zeros of the provided size.
 
 Initialize a `float` texture with zeros of the provided size.
 
+### `[playground::BLACK_3D(64, 64, 64)]`
+
+Initialize a `float` 3D texture with zeros of the provided size.
+
 ### `[playground::BLACK_SCREEN(1.0, 1.0)]`
 
 Initialize a `float` texture with zeros with a size proportional to the screen size.

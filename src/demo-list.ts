@@ -7,6 +7,7 @@ export let demoList = [
   { name: "ShaderToy: Circle", url: "circle.slang" },
   { name: "ShaderToy: Ocean", url: "ocean.slang" },
   { name: "Painting", url: "painting.slang" },
+  { name: "Volume Slice", url: "volume-slice.slang" },
   { name: "2D Splatter", url: "gsplat2d.slang" },
   { name: "Differentiable 2D Splatter", url: "gsplat2d-diff.slang" },
   { name: "──────────", url: "" },
