@@ -54,13 +54,13 @@ defineExpose({
       <h4>Shader Commands</h4>
       <p>WebGPU shaders in browser can use certain commands to specify how they will run. Requires <code>import playground;</code>.</p>
         <h4 class="doc-header"><code>[playground::ZEROS(512)]</code></h4>
-        Initialize a <code>float</code> buffer with zeros of the provided size.
+        Initialize a buffer with zeros of the provided size.
         <h4 class="doc-header"><code>[playground::BLACK(512, 512)]</code></h4>
-        Initialize a <code>float</code> texture with zeros of the provided size.
+        Initialize a texture with zeros of the provided size.
         <h4 class="doc-header"><code>[playground::BLACK_3D(64, 64, 64)]</code></h4>
-        Initialize a <code>float</code> 3D texture with zeros of the provided size.
+        Initialize a 3D texture with zeros of the provided size.
         <h4 class="doc-header"><code>[playground::BLACK_SCREEN(1.0, 1.0)]</code></h4>
-        Initialize a <code>float</code> texture with zeros with a size proportional to the screen size.
+        Initialize a texture with zeros with a size proportional to the screen size.
         <h4 class="doc-header"><code>[playground::SAMPLER]</code></h4>
         Initialize a sampler state with linear filtering and repeat address mode for sampling textures.
         <h4 class="doc-header"><code>[playground::URL("https://example.com/image.png")]</code></h4>
